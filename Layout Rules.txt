@@ -1,0 +1,316 @@
+Regeln:
+
+
+Eine App ist visuell gesehen ein Fenster mit Außenseiten
+
+in diesem Fenster können weitere Fenster enthalten sein, sowie weitere Elemente mit Außenseiten, z.B. Buttons
+		Fenster können Buttons enthalten, sowie Fenster weitere Fenster oder Fensterartige Elemente
+	Kein Fenster kann größer werden, als als die aktuelle breite des Appfensters
+			-> Folgende Regeln sollten gelten:
+				Wenn innerhalb des Hauptfensters, in diesem Fall Appfensters,
+				eine außenseite des darin enthaltenen Fensters, direkt neben der außenseite des appfensters liegt und parallel dazu ist,
+				dann sind die außenseiten des appfensters außenbegrenzer für das darin enthaltene fenster. -> größer als das appfenster 
+				kann das darin enthaltene fenster in Richtung der betroffenen außenseite nicht werden. die außenseite ist Referenz würd die 
+				direkt benachbarte außenseite einer darin liegenden fensters. Direkt daneben liegend bedeutet, dass zwischen den außenseiten keine
+				anderen ränder von anderen fenstern liegen und dort in dem platz keine Funktionen platziert sind.
+
+				Beim Ändern des size der außenseiten durch ziehen oder verlängern, schiebt man die benachbarten inneren außenseiten der fenster mitsamt klein oder groß,
+				die fenster die im appfenster enthalten sind sollen dabei zusammengeschoben werden können, deren Inhalte sollen sich dynamisch kleiner/größer skalieren, 
+				aber ihre Mindestgröße nicht unterschreiten, ihre maximalgröße nicht überschreiten.
+
+				Jedes fenster hat somit midnetens diese regeln über ihre größe gemessen an breite und höhe: Mindest, Maximal, Standard, Ist-Größe.
+				Die Größe von jedem fenster ist mittels gedrückter linker maus resizebar, beim resizen eines Fenster dürfen weder die 
+						eigenen: Mindest, Maximal, und Standardwerte
+						noch die: Mindest, Maximal, und Standardwerte der Im Fenster enthaltenen Fenster 
+						nicht über/ untershritten schritten, maximal nicht überschritten werden.
+				Der Standard Wert ist der Wert, auf den die App beim Neustart der App zugreift
+				Der Ist Wert ist der während der appnutzung veränderte Wert der fensterbreite
+				Der ANpasswert ist ein sonderwert, auf den eine ausgewählte aktion gesondert zugreifen soll. 
+						-> Ausklappen eines Bereichs soll sich der Umgebung anpassen, ist das Außenfenster größer als Standardwert,
+						wird der Inhalt an Istwert des übergeordneten fensters angepasst
+				Zuvorwert: Zuvorwert ist der wert der vor einer aktion stattgefunden hat, resize, oder zB aufklappen/einklappen von bereichen
+						beim einklappen von bereichen sollen die außenränder des übergordneten fensters auf den zuvorwert zurückfallen.
+				SIchtbarwerte: Wertfrage: Dürfen Teile dieses Fensters breiten oder höhen haben, deren Bereiche im übergeordneten Bereich ohne scrollen, oder ohne resizen, unsichtbar wären? Defaultsetting:
+								-> Nein, außer eine Scrollfunktion erwünscht.
+
+
+
+Intelligenter Resize: resize läuft mit orinentireung an umgeubung anpassend, wenn man beim Resizen eines fenster in der Nähe der gleichen höhe eines benahcbarten fensters ist, soll es einrasten in die positon und das geordnete Resizen erleichtern, individuell anpassen soll weiterhin auch möglich sein. Wenn man an einer fensterecke resized, soll, intelligent mit orinentireung an umgeubung anpassend, sowie verhältnistreu inneres skalierend, das fenster verkleinert oder vergrößert werden können. natürlich immer unter Einhaltung der regeln wie minimal und maximal werte.
+
+
+DEV Eisntellbarkeit: Es gibt Appfensternamen, für alle Fenster in der App, diese sind visuell darstellbar, unten rechts an jedem fenster, sichtbar wenn resize Einstellung aktiv ist. In den Resize Einstellungen kann man die verschiedenen wertarten einzeln konfigriuren und auch visuell einstellen kann. zb für jeden wert eine farbe, wählt man aus welchen wert man visuell einstellen will, ändern die Linien die farben, man kann aber auch werte in einem Feld angeben (Pixel, cm, Prozent, was auch immerl ogisch ist je nach Situation) 
+zugleich gibt's innerhalb dieser aktiven Funktion ein button mit dem sich ein fenster öffnet in dem man sieht welcher wert als prompt dem einzelnen wert zugrunde liegt. für jeden wert einzeln. Beispiel für Standardwert: "Der Standard Wert ist der Wert, auf den die App beim Neustart der App zugreift" (nicht wörtlich nehmen, mach da was passendes draus) 
+
+	weitere Funktion in diesem Modus dev: wenn ich auf ienen button klicke, kann ich die Eigenschaften dahinter anpassen: was für ein button das ist, sowie die Eigenschaften in seiner Funktion: bei collapse button alle Eigenschaften
+ einstellen können die kollabiren betreffen
+
+
+
+
+
+
+
+Inhalt für eine direkt nutzbare TXT-Datei:
+
+KONZEPT-HANDBUCH
+Constraint-basiertes Fenster- und Resize-System mit Dev-Overlay
+Version: 1.0
+Stand: 02.04.2026
+
+1. Ziel und Ergebnis
+
+Dieses Konzept definiert ein verschachteltes UI-Layout-System, in dem Container (Fenster) und UI-Elemente regelbasiert skaliert, verschoben und per Maus resizable sind.
+Ergebnis ist eine robuste, direkt implementierbare Architektur mit:
+1. harten Größen-Constraints (min/max),
+2. deterministischem Resize-Verhalten,
+3. Snap-Unterstützung für saubere Ausrichtung,
+4. Dev-Modus zur visuellen Konfiguration und Inspektion.
+
+2. Begriffe
+
+1. AppWindow: Root-Container der Anwendung.
+2. Window: Resizable Container innerhalb eines Parent-Containers.
+3. Element: UI-Komponente (Button, Input, Liste, etc.).
+4. Edge: Kante eines Containers (left, right, top, bottom).
+5. Parent: Direkt übergeordnetes Window.
+6. Child: Direkt untergeordnetes Window.
+7. Overflow: Bereich eines Child außerhalb des sichtbaren Parent-Innenbereichs.
+
+3. Normative Regeln (MUSS/SOLL/KANN)
+
+3.1 MUSS-Regeln
+1. Ein Child darf entlang jeder Achse nie größer als sein Parent-Innenbereich sein.
+2. Jede Resize-Operation muss min/max jedes betroffenen Windows einhalten.
+3. Keine Überlappung zwischen sibling Windows, sofern nicht explizit als Overlay markiert.
+4. Bei deaktiviertem Scrollen ist Overflow verboten.
+5. Jeder Zustand muss reproduzierbar sein (gleiches Input-Event führt zu gleichem Layout-Ergebnis).
+
+3.2 SOLL-Regeln
+1. Resize soll benachbarte Kanten innerhalb eines Snap-Thresholds einrasten lassen.
+2. Corner-Resize soll proportional möglich sein, wenn keepAspectRatio aktiv ist.
+3. Bei Parent-Resize sollen Children priorisiert über definierte Resize-Priorität angepasst werden (zuerst flexible Bereiche, dann starre).
+
+3.3 KANN-Regeln
+1. Snap per Modifier-Taste temporär deaktivieren.
+2. Unterschiedliche Einheiten im Dev-Modus unterstützen (px, %, optional rem/cm).
+3. Animierte Transitionen für Expand/Collapse optional einschalten.
+
+4. Datenmodell pro Window
+
+4.1 Pflichtattribute
+1. id: eindeutige ID
+2. name: technischer Name
+3. parentId: Parent-Referenz
+4. bounds: x, y, width, height
+5. minSize: width, height
+6. maxSize: width, height
+7. defaultSize: width, height
+8. currentSize: width, height
+9. adaptSize: width, height
+10. previousSize: width, height
+11. visibilityPolicy: noOverflow oder allowOverflowWithScroll
+12. resizePolicy: fixed, flexible, proportional
+13. snapPolicy: enabled oder disabled
+14. metadata: freie Zusatzinfos
+
+4.2 Beispielstruktur
+{
+  "id": "window.chat",
+  "name": "ChatPanel",
+  "parentId": "app.root",
+  "bounds": { "x": 0, "y": 0, "width": 980, "height": 720 },
+  "minSize": { "width": 480, "height": 320 },
+  "maxSize": { "width": 1920, "height": 2160 },
+  "defaultSize": { "width": 980, "height": 720 },
+  "currentSize": { "width": 980, "height": 720 },
+  "adaptSize": { "width": 1100, "height": 720 },
+  "previousSize": { "width": 940, "height": 720 },
+  "visibilityPolicy": "noOverflow",
+  "resizePolicy": "flexible",
+  "snapPolicy": "enabled",
+  "metadata": { "devLabelVisible": true }
+}
+
+5. Constraint Engine
+
+5.1 Validierungsreihenfolge bei jeder Layout-Änderung
+1. Parent-Grenzen anwenden.
+2. min/max pro Window clampen.
+3. Sibling-Kollisionen auflösen.
+4. Overflow-Policy anwenden.
+5. Snap anwenden.
+6. Endzustand committen.
+
+5.2 Kernformeln
+1. widthNeu = clamp(widthAlt + deltaX, minWidth, maxWidth)
+2. heightNeu = clamp(heightAlt + deltaY, minHeight, maxHeight)
+3. widthNeu <= parentInnerWidth
+4. heightNeu <= parentInnerHeight
+
+5.3 Direkt angrenzende Kanten (Edge Adjacency)
+Direkt angrenzend ist eine Kante nur dann, wenn:
+1. kein anderes Window zwischen den Kanten liegt,
+2. kein interaktives Element als Blocker dazwischen liegt,
+3. der Abstand kleiner oder gleich adjacencyTolerance ist.
+
+Wenn direkt angrenzend, gilt die Parent-Kante als harte Grenze.
+
+6. Resize-Verhalten
+
+6.1 User-Resize
+1. Drag startet mit Snapshot aller betroffenen Window-Zustände.
+2. Delta aus Pointer-Bewegung berechnen.
+3. Primärfenster updaten.
+4. Betroffene Children gemäß resizePolicy nachziehen.
+5. Constraints global validieren.
+6. Bei Erfolg commit, sonst rollback auf letzten gültigen Zustand.
+
+6.2 Parent-Resize Propagation
+1. Starte beim Parent.
+2. Verteile Fläche nach Prioritäten:
+   a) flexible Bereiche zuerst,
+   b) fixed-Bereiche nur wenn notwendig bis min/max,
+   c) Rest als Overflow nur wenn Policy dies erlaubt.
+3. Verhindere Layout-Jitter durch deterministische Reihenfolge.
+
+6.3 Corner-Resize
+1. Wenn proportional aktiv:
+   newWidth/newHeight mit konstantem Seitenverhältnis berechnen.
+2. Danach clamp und Parent-Grenzen anwenden.
+3. Falls unlösbar, auf nächstgültigen Zustand zurückfallen.
+
+7. Collapse/Expand
+
+7.1 Expand
+1. previousSize sichern.
+2. Zielgröße bestimmen:
+   a) wenn Parent.currentSize > Parent.defaultSize, orientiere an Parent.currentSize,
+   b) sonst orientiere an defaultSize des Child.
+3. Zielgröße durch Constraint Engine validieren.
+4. commit.
+
+7.2 Collapse
+1. previousSize des betroffenen übergeordneten Bereichs laden.
+2. Auf previousSize zurücksetzen.
+3. Constraints neu berechnen.
+4. commit.
+
+8. Snap-System
+
+8.1 Snap-to-Edge
+1. Prüfe Distanz zu relevanten Referenzkanten.
+2. Wenn Distanz < snapThreshold, setze Kante exakt auf Referenz.
+3. Speichere Snap-Indikator für visuelles Feedback.
+
+8.2 Empfohlene Standardwerte
+1. snapThreshold: 8 px
+2. adjacencyTolerance: 1 px
+3. minDragDelta: 2 px (gegen Mikro-Jitter)
+
+8.3 Override
+1. Snap deaktivieren, solange Modifier-Taste gedrückt.
+2. Nach Loslassen wieder aktivieren.
+
+9. Sichtbarkeit und Scroll
+
+9.1 Default
+1. noOverflow ist Standard.
+2. Child muss vollständig im Parent sichtbar sein.
+
+9.2 Scroll-Ausnahme
+1. allowOverflowWithScroll erlaubt Überhang.
+2. Parent muss ScrollContainer aktivieren.
+3. Scrollbars müssen per Keyboard und Maus erreichbar sein.
+
+10. Dev-Modus
+
+10.1 Aktivierung
+1. Globaler Schalter DevMode.
+2. Nur in Dev/QA-Build standardmäßig sichtbar.
+
+10.2 Overlay-Funktionen
+1. Window-Label unten rechts pro Window.
+2. Sichtbare Kanten und Größenlinien.
+3. Farbmodus je Werttyp:
+   a) minSize rot,
+   b) maxSize grün,
+   c) defaultSize blau,
+   d) currentSize weiß,
+   e) adaptSize gelb,
+   f) previousSize orange.
+4. Umschaltbarer Edit-Modus pro Werttyp.
+5. Direkte Eingabe über Property-Panel (px/%).
+6. Prompt-Inspector je Attribut mit Kurzbeschreibung und Anwendungszweck.
+
+10.3 Element-Inspector (Buttons)
+1. Typ ändern: action, collapse, toggle, navigation.
+2. Verhalten konfigurieren: targetWindow, animation, shortcut, disabledRules.
+3. Validierung: keine zyklischen collapse-Abhängigkeiten.
+
+11. Architekturvorschlag
+
+11.1 Module
+1. LayoutTree: Parent-Child-Hierarchie und Traversal.
+2. ConstraintEngine: Regeln prüfen und Zielgrößen berechnen.
+3. ResizeController: Pointer-Events, Drag-Lifecycle.
+4. SnapEngine: Alignment und Snap-Entscheidungen.
+5. DevOverlay: Visualisierung und Edit-Tools.
+6. StateStore: Single Source of Truth (undo/redo-fähig).
+7. Persistence: Laden/Speichern von default/current/adapt.
+
+11.2 Zustandsprinzip
+1. Immutable State Updates für Nachvollziehbarkeit.
+2. Jede UI-Aktion erzeugt ein Action-Event.
+3. Layout wird nur über ConstraintEngine committed.
+
+12. API-Verträge (framework-unabhängig)
+
+12.1 Pflicht-Methoden
+1. beginResize(windowId, handle, pointer)
+2. updateResize(pointer)
+3. endResize()
+4. applyConstraints(layoutTree) -> layoutTreeValid
+5. collapse(windowId)
+6. expand(windowId)
+7. setSizeValue(windowId, valueType, width, height)
+8. getWindowDiagnostics(windowId)
+
+12.2 Rückgabeverhalten
+1. Bei Erfolg: neuer valider Layout-State.
+2. Bei Regelverletzung: Fehlercode + letzter valider State.
+
+13. QA-Akzeptanzkriterien
+
+1. Kein Window verletzt min/max in 1000 zufälligen Resize-Operationen.
+2. Kein Child verlässt Parent-Grenzen bei noOverflow.
+3. Snap trifft reproduzierbar innerhalb threshold.
+4. Collapse/Expand stellt previousSize korrekt wieder her.
+5. Dev-Overlay zeigt für jedes Window korrekte Werte.
+6. Keyboard-Bedienung bleibt nach Resizes funktionsfähig.
+7. DPI 100/125/150/200 ohne abgeschnittene Kern-UI.
+
+14. Risiken und Gegenmaßnahmen
+
+1. Risiko: Zirkuläre Resize-Abhängigkeiten.
+   Maßnahme: Topologische Reihenfolge und Cycle-Check.
+2. Risiko: Flackernde Layouts bei schnellem Drag.
+   Maßnahme: Throttling + frame-synchrones Rendering.
+3. Risiko: Inkonsistente Persistenz zwischen default/current.
+   Maßnahme: klare Speichermomente und Versionsschema.
+
+15. Implementierungsplan (MVP in 4 Schritten)
+
+1. Schritt 1: Datenmodell + LayoutTree + ConstraintEngine-Grundregeln.
+2. Schritt 2: ResizeController + Parent-Propagation + noOverflow.
+3. Schritt 3: SnapEngine + Collapse/Expand + previous/adapt Logik.
+4. Schritt 4: DevOverlay + Inspector + Persistenz + QA-Tests.
+
+16. Definition of Done
+
+1. Alle MUSS-Regeln technisch erzwungen.
+2. API-Methoden implementiert und dokumentiert.
+3. Mindestens 30 automatisierte Layout-Tests vorhanden.
+4. Manuelle QA-Checklist erfolgreich durchlaufen.
+5. Dev-Modus für Werteinspektion produktiv nutzbar.
+
+Ende des Dokuments.
