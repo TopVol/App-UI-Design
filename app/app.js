@@ -10,12 +10,22 @@ const initialState = {
     rightOpen: false,
     bottomOpen: false,
   },
+  window: {
+    x: 24,
+    y: 24,
+    width: 1120,
+    height: 720,
+    minWidth: 880,
+    minHeight: 560,
+    maxWidth: 5000,
+    maxHeight: 4000,
+  },
   ui: {
     activeView: 'app',
     floatingOpen: false,
     fullscreen: false,
-    tooltip: 'Die modulare v4.9 ist aktiv. Struktur vor Tiefenumbau.',
-    logs: ['v4.9 initialisiert', 'HTML/CSS/Render/State getrennt'],
+    tooltip: 'Sprint 2 aktiv: Window-State und Constraint-Helfer sind modular verdrahtet.',
+    logs: ['Sprint 2 initialisiert', 'Archivdateien werden im Repo erhalten'],
   },
 };
 
@@ -46,7 +56,7 @@ const store = new StateStore(bootState);
 
 function addLog(draft, text) {
   draft.ui.logs.push(text);
-  draft.ui.logs = draft.ui.logs.slice(-12);
+  draft.ui.logs = draft.ui.logs.slice(-14);
 }
 
 function togglePanel(key, label) {
@@ -54,6 +64,16 @@ function togglePanel(key, label) {
     draft.layout[key] = !draft.layout[key];
     draft.ui.tooltip = `${label} ${draft.layout[key] ? 'geöffnet' : 'geschlossen'}`;
     addLog(draft, `${label} ${draft.layout[key] ? 'geöffnet' : 'geschlossen'}`);
+  });
+}
+
+function updateWindowBounds(mutator) {
+  store.update((draft) => {
+    const next = engine.applyWindowBounds(mutator(structuredClone(draft.window)), {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    draft.window = next;
   });
 }
 
@@ -65,7 +85,8 @@ function bindEvents() {
     if (target.id === 'btnFullscreen') {
       store.update((draft) => {
         draft.ui.fullscreen = !draft.ui.fullscreen;
-        addLog(draft, `Vollbild ${draft.ui.fullscreen ? 'aktiviert' : 'deaktiviert'}`);
+        draft.ui.tooltip = draft.ui.fullscreen ? 'Vollbild aktiviert' : 'Vollbild deaktiviert';
+        addLog(draft, draft.ui.tooltip);
       });
       return;
     }
@@ -123,7 +144,6 @@ function bindEvents() {
     if (target.dataset.action === 'toggleRight') return togglePanel('rightOpen', 'Rechte Sidebar');
   });
 
-  const appWindow = document.getElementById('appWindow');
   const appHeader = document.getElementById('appHeader');
   const resizeHandle = document.getElementById('appResizeHandle');
 
@@ -133,60 +153,58 @@ function bindEvents() {
   appHeader.addEventListener('pointerdown', (event) => {
     if (store.getState().ui.fullscreen) return;
     appHeader.classList.add('dragging');
-    const rect = appWindow.getBoundingClientRect();
-    dragSession = { startX: event.clientX, startY: event.clientY, x: rect.left, y: rect.top };
+    const current = store.getState().window;
+    dragSession = { startX: event.clientX, startY: event.clientY, x: current.x, y: current.y };
   });
 
   resizeHandle.addEventListener('pointerdown', (event) => {
     if (store.getState().ui.fullscreen) return;
-    const rect = appWindow.getBoundingClientRect();
-    resizeSession = { startX: event.clientX, startY: event.clientY, width: rect.width, height: rect.height, x: rect.left, y: rect.top };
+    const current = store.getState().window;
+    resizeSession = { startX: event.clientX, startY: event.clientY, width: current.width, height: current.height, x: current.x, y: current.y };
     event.stopPropagation();
   });
 
   window.addEventListener('pointermove', (event) => {
     if (dragSession) {
-      const next = engine.applyWindowBounds({
+      updateWindowBounds((current) => ({
+        ...current,
         x: dragSession.x + (event.clientX - dragSession.startX),
         y: dragSession.y + (event.clientY - dragSession.startY),
-        width: appWindow.offsetWidth,
-        height: appWindow.offsetHeight,
-        minWidth: 880,
-        minHeight: 560,
-        maxWidth: window.innerWidth,
-        maxHeight: window.innerHeight,
-      }, { width: window.innerWidth, height: window.innerHeight });
-      appWindow.style.left = `${next.x}px`;
-      appWindow.style.top = `${next.y}px`;
+      }));
     }
 
     if (resizeSession) {
-      const next = engine.applyWindowBounds({
+      updateWindowBounds((current) => ({
+        ...current,
         x: resizeSession.x,
         y: resizeSession.y,
         width: resizeSession.width + (event.clientX - resizeSession.startX),
         height: resizeSession.height + (event.clientY - resizeSession.startY),
-        minWidth: 880,
-        minHeight: 560,
-        maxWidth: window.innerWidth - 16,
-        maxHeight: window.innerHeight - 16,
-      }, { width: window.innerWidth, height: window.innerHeight });
-      appWindow.style.width = `${next.width}px`;
-      appWindow.style.height = `${next.height}px`;
+      }));
     }
   });
 
   window.addEventListener('pointerup', () => {
+    if (dragSession || resizeSession) {
+      store.update((draft) => {
+        addLog(draft, `Window aktualisiert: ${Math.round(draft.window.width)}×${Math.round(draft.window.height)} @ ${Math.round(draft.window.x)},${Math.round(draft.window.y)}`);
+      });
+    }
     dragSession = null;
     resizeSession = null;
     appHeader.classList.remove('dragging');
   });
 }
 
+function doRender(state) {
+  const metrics = engine.getShellMetrics(state.layout);
+  render(state, metrics);
+}
+
 store.subscribe((state) => {
-  render(state);
+  doRender(state);
   saveState(state);
 });
 
 bindEvents();
-render(store.getState());
+doRender(store.getState());
