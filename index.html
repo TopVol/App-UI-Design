@@ -4,10 +4,48 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>App UI Design v4.9</title>
-  <link rel="stylesheet" href="./styles/layout.css">
+  <link rel="stylesheet" href="./styles/layout.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <div class="desktop">
+    <div class="hud">
+      <div class="chip" id="modeChip">Engine-Ansicht aktiv · v4.9</div>
+      <div class="chip" id="sizeChip">Adaptive Shell · modularisiert</div>
+    </div>
+
+    <div class="app-window" id="appWindow">
+      <div class="rail left" id="leftRail">❯</div>
+      <div class="rail right" id="rightRail">❮</div>
+
+      <div class="app-header" id="appHeader">
+        <div class="title-wrap">
+          <div class="lamp"></div>
+          <div>
+            <div class="title">App Window · v4.9</div>
+            <div class="subtitle">Split in HTML, CSS, Render, State, Engine</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btnSaveLayout">Speichern</button>
+          <button class="icon-btn" id="btnLoadLayout">Laden</button>
+          <button class="icon-btn" id="btnUndo">Undo</button>
+          <button class="icon-btn" id="btnRedo">Redo</button>
+          <button class="icon-btn" id="btnFullscreen">Vollbild</button>
+        </div>
+      </div>
+
+      <div class="app-shell" id="appShell">
+        <aside class="sidebar" id="leftSidebar"><div id="leftSidebarContent"></div></aside>
+        <main class="main"><div class="main-canvas" id="mainCanvas"></div></main>
+        <aside class="rightbar" id="rightSidebar"><div id="rightSidebarContent"></div></aside>
+        <section class="bottom-panel hidden" id="bottomPanel"></section>
+      </div>
+
+      <div class="tooltip-bar" id="tooltipBar">Die modulare v4.9 ist aktiv. Struktur vor Tiefenumbau.</div>
+      <div class="resize-handle" id="appResizeHandle"></div>
+    </div>
+  </div>
+
   <script type="module" src="./app/app.js"></script>
 </body>
 </html>

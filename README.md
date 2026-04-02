@@ -6,33 +6,36 @@ Dieses Repository implementiert ein **constraint-basiertes Fenster- und Resize-S
 
 ### Highlights
 
-- **Constraint Engine:** `files/ConstraintEngine.js` validiert Größenänderungen, erkennt Regelverletzungen und liefert einen neuen gültigen State zurück.
-- **State Store:** `files/StateStore.js` kapselt den gesamten Zustand, erzwingt immutable Updates und erlaubt Undo/Redo.
+- **Constraint Engine:** Struktur für ein regelbasiertes Layout-System unter `engine/`
+- **State Store:** einfacher, nachvollziehbarer UI-State mit Undo/Redo unter `engine/state-store.js`
 - **Konzept-Handbuch:** `Layout Rules.txt` dokumentiert Regeln, Datenmodell, API-Verträge und QA-Kriterien.
-- **Demo:** `mvp_demo_v4.8.html` zeigt eine integrierte Browser-Demo mit Desktop-artigem UI.
-- **TypeScript-Port:** Unter `src/` liegt eine getypte, modulare Fassung als Work in Progress.
+- **Split-Demo:** `index.html` + `styles/` + `app/` + `engine/` als modulare v4.9-Basis
 
 ## Verzeichnisstruktur
 
 ```text
 .
-├── Layout Rules.txt
-├── mvp_demo_v4.8.html
-├── files/
-│   ├── ConstraintEngine.js
-│   ├── StateStore.js
-│   ├── constants.js
-│   ├── examples.js
-│   └── initialState.js
-└── src/
-    ├── controller/
-    ├── engine/
-    └── types/
+├── README.md
+├── .gitignore
+├── SPLIT_PLAN_v4.9.md
+├── index.html
+├── styles/
+│   └── layout.css
+├── app/
+│   ├── app.js
+│   └── render.js
+└── engine/
+    ├── constraint-engine.js
+    └── state-store.js
 ```
 
-## Nächste sinnvolle Schritte
+## Status
 
-1. Demo aus dem HTML-Monolithen in `index.html`, CSS- und JS-Module zerlegen.
-2. JavaScript- und TypeScript-Codebasis zusammenführen.
-3. Tests für Constraint Engine und StateStore ergänzen.
-4. Dev-Overlay gemäß Konzept-Handbuch implementieren.
+Die aktuelle v4.9 ist der **echte Struktur-Split** des bisherigen Demo-Gedankens:
+
+1. HTML ist nur noch Shell
+2. CSS liegt separat
+3. Rendering liegt separat
+4. State + Logik liegen separat
+
+Die nächste Ausbaustufe ist die Rückführung aller fortgeschrittenen Monolith-Funktionen in diese Modulstruktur.
