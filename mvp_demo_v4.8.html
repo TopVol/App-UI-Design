@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MVP Demo V4.8 — Engine Integrated</title>
+  <style>
+    :root {
+      --bg: #0f1320; --panel: #161c2f; --panel-2: #1d2641; --line: #304062;
+      --text: #e9eefc; --muted: #aab6d6; --accent: #75a7ff;
+      --good: #67d3a6; --warn: #ffd479; --danger: #ff8f9b;
+      --shadow: 0 22px 60px rgba(0,0,0,.45); --radius: 18px;
+      --sidebar-w: 0px; --rightbar-w: 0px; --bottom-h: 0px;
+      --app-w: 1120px; --app-h: 720px; --header-h: 52px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden;
+      background: radial-gradient(circle at top left, #1c2544 0%, transparent 25%),
+        radial-gradient(circle at bottom right, #172038 0%, transparent 30%),
+        linear-gradient(160deg, #090d17, #0f1320 55%, #0b1020);
+      color: var(--text); font-family: var(--font); }
+    button, input, select, textarea { font: inherit; }
+    .desktop { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+    .hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex;
+      justify-content: space-between; pointer-events: none; z-index: 60; }
+    .hud .chip { pointer-events: auto; display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(15,19,32,.75); border: 1px solid rgba(255,255,255,.08);
+      padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(10px);
+      color: var(--muted); box-shadow: var(--shadow); font-size: 12px; }
+    .app-window { position: absolute; width: min(var(--app-w), calc(100vw - 48px));
+      height: min(var(--app-h), calc(100vh - 48px)); left: 24px; top: 24px;
+      background: linear-gradient(180deg, rgba(22,28,47,.98), rgba(15,19,32,.98));
+      border: 1px solid rgba(255,255,255,.09); border-radius: 24px;
+      box-shadow: var(--shadow); overflow: visible; user-select: none; }
+    .app-window.fullscreen { left: 8px !important; top: 8px !important;
+      width: calc(100vw - 16px) !important; height: calc(100vh - 16px) !important;
+      border-radius: 20px; }
+    .app-header { height: var(--header-h); display: flex; align-items: center;
+      justify-content: space-between; padding: 0 14px 0 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 24px 24px 0 0;
+      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01));
+      cursor: grab; }
+    .app-header.dragging { cursor: grabbing; }
+    .title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .lamp { width: 10px; height: 10px; border-radius: 50%; background: var(--good);
+      box-shadow: 0 0 12px rgba(103,211,166,.7); }
+    .title { font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+    .subtitle { color: var(--muted); font-size: 12px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-btn, .menu-btn, .save-btn { border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04); color: var(--text); border-radius: 12px;
+      padding: 8px 10px; cursor: pointer; transition: .18s ease; }
+    .icon-btn:hover, .menu-btn:hover, .save-btn:hover { background: rgba(117,167,255,.14);
+      border-color: rgba(117,167,255,.4); transform: translateY(-1px); }
+    .app-shell { position: absolute; inset: var(--header-h) 0 0 0; display: grid;
+      grid-template-columns: 0 minmax(0,1fr) 0; grid-template-rows: minmax(0,1fr) 0;
+      transition: .22s ease; overflow: hidden; border-radius: 0 0 24px 24px; }
+    .app-window.left-open-inner  .app-shell { grid-template-columns: var(--sidebar-w) minmax(0,1fr) 0; }
+    .app-window.right-open-inner .app-shell { grid-template-columns: 0 minmax(0,1fr) var(--rightbar-w); }
+    .app-window.left-open-inner.right-open-inner .app-shell { grid-template-columns: var(--sidebar-w) minmax(0,1fr) var(--rightbar-w); }
+    .app-window.bottom-open .app-shell { grid-template-rows: minmax(0,1fr) var(--bottom-h); }
+    .sidebar, .rightbar, .main, .bottom-panel { min-width: 0; min-height: 0; }
+    .sidebar, .rightbar, .bottom-panel { background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01)); }
+    .sidebar, .rightbar { border-right: 1px solid rgba(255,255,255,.08); overflow: hidden; }
+    .rightbar { border-right: 0; border-left: 1px solid rgba(255,255,255,.08); }
+    .sidebar-content, .rightbar-content { height: 100%; display: flex; flex-direction: column; }
+    .side-head { padding: 12px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.07); color: var(--muted); }
+    .rail { position: absolute; top: 88px; width: 18px; bottom: 18px; display: flex;
+      align-items: center; justify-content: center; background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08); color: var(--muted); border-radius: 999px;
+      cursor: pointer; z-index: 5; transition: .2s ease; box-shadow: 0 10px 24px rgba(0,0,0,.24); }
+    .rail:hover { color: var(--text); background: rgba(117,167,255,.14); border-color: rgba(117,167,255,.35); }
+    .rail.left { left: -9px; } .rail.right { right: -9px; }
+    .app-window.left-open-outer  .sidebar-outer,
+    .app-window.right-open-outer .rightbar-outer { opacity: 1; pointer-events: auto; }
+    .sidebar-outer, .rightbar-outer { position: absolute; top: calc(var(--header-h) + 8px);
+      bottom: 8px; width: var(--sidebar-w); opacity: 0; pointer-events: none;
+      transition: .22s ease; z-index: 4;
+      background: linear-gradient(180deg, rgba(22,28,47,.98), rgba(15,19,32,.98));
+      border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
+      box-shadow: var(--shadow); overflow: hidden; }
+    .sidebar-outer  { left:  calc(var(--sidebar-w)  * -1 - 10px); }
+    .rightbar-outer { right: calc(var(--rightbar-w) * -1 - 10px); width: var(--rightbar-w); }
+    .main { position: relative; padding: 14px; overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.015), rgba(255,255,255,.005)); }
+    .main-canvas { width: 100%; height: 100%; border-radius: 18px;
+      background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.05);
+      position: relative; overflow: auto; padding: 14px; }
+    .bottom-panel { border-top: 1px solid rgba(255,255,255,.08); padding: 12px; overflow: auto; }
+    .nav-list, .tool-list { padding: 10px; display: grid; gap: 8px; }
+    .nav-item { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      width: 100%; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.07);
+      background: rgba(255,255,255,.03); color: var(--text); cursor: pointer; text-align: left; }
+    .nav-item:hover, .nav-item.active { background: rgba(117,167,255,.16); border-color: rgba(117,167,255,.36); }
+    .nav-item small { color: var(--muted); }
+    .window-grid { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 14px; }
+    .ui-window { position: relative; min-height: 220px;
+      background: linear-gradient(180deg, rgba(29,38,65,.95), rgba(18,23,39,.95));
+      border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
+      overflow: hidden; box-shadow: 0 10px 24px rgba(0,0,0,.15); }
+    .ui-window.selected { outline: 2px solid rgba(117,167,255,.55); }
+    .ui-window .ui-header { display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.03); }
+    .ui-window .ui-title { font-weight: 700; }
+    .ui-window .ui-body { padding: 12px; color: var(--muted); min-height: 140px; }
+    .ui-window .ui-footer { display: flex; gap: 8px; padding: 0 12px 12px; flex-wrap: wrap; }
+    .tag { font-size: 12px; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03); border-radius: 999px;
+      padding: 6px 9px; color: var(--muted); }
+    .inline-btn { border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04);
+      color: var(--text); border-radius: 12px; padding: 7px 10px; cursor: pointer; }
+    .inline-btn:hover { background: rgba(117,167,255,.14); }
+    .nested-window { margin-top: 12px; border: 1px dashed rgba(255,255,255,.15);
+      border-radius: 14px; padding: 10px; background: rgba(255,255,255,.02); }
+    .floating-window { position: absolute; width: 360px; height: 220px; z-index: 7;
+      background: linear-gradient(180deg, rgba(29,38,65,.98), rgba(15,19,32,.98));
+      border: 1px solid rgba(255,255,255,.09); border-radius: 16px;
+      box-shadow: var(--shadow); overflow: hidden; }
+    .floating-window.hidden { display: none; }
+    .floating-window .draghead { height: 40px; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04); cursor: grab; }
+    .floating-window .body { padding: 12px; color: var(--muted); }
+    .accordion { padding: 10px; display: grid; gap: 8px; overflow: auto; }
+    details { border: 1px solid rgba(255,255,255,.08); border-radius: 14px;
+      background: rgba(255,255,255,.025); overflow: hidden; }
+    summary { list-style: none; cursor: pointer; padding: 12px; font-weight: 600;
+      color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+    summary::-webkit-details-marker { display: none; }
+    .details-body { padding: 0 12px 12px; color: var(--muted); display: grid; gap: 10px; }
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    .field input, .field select, .field textarea { width: 100%;
+      background: rgba(0,0,0,.18); color: var(--text);
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 9px 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mini-list { display: grid; gap: 6px; }
+    .mini-item { border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
+      border-radius: 10px; padding: 8px 10px; font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good);
+      display: inline-block; margin-right: 6px; }
+    .tooltip-bar { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 9;
+      padding: 10px 12px; border-radius: 14px; background: rgba(8,11,20,.78);
+      border: 1px solid rgba(255,255,255,.08); color: var(--muted);
+      backdrop-filter: blur(8px); font-size: 13px; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+    .view-panel { display: grid; gap: 14px; }
+    .card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+      border-radius: 16px; padding: 14px; }
+    .card h3 { margin: 0 0 10px; font-size: 16px; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .save-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+    .resize-handle { position: absolute; right: 6px; bottom: 6px; width: 16px; height: 16px;
+      border-radius: 8px; cursor: se-resize;
+      background: linear-gradient(135deg, transparent 45%, rgba(255,255,255,.45) 45%,
+        rgba(255,255,255,.45) 55%, transparent 55%); opacity: .75; }
+    @media (max-width: 980px) {
+      .window-grid { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="desktop" id="desktop">
+    <div class="hud">
+      <div class="chip" id="modeChip">Engine-Ansicht aktiv · V4.8</div>
+      <div class="chip" id="sizeChip">Adaptive Shell · V4.8</div>
+    </div>
+    <div class="app-window" id="appWindow"
+         data-hover="Das Appfenster ist das Root-Window. Resize läuft durch die ConstraintEngine. Shared Edges propagieren Größenänderungen an benachbarte Panels.">
+      <div class="rail left"  id="leftRail"  data-hover="Klappt die linke Sidebar auf oder zu. Im Inner-Modus schrumpft die Main Area via SharedEdge.">❯</div>
+      <div class="rail right" id="rightRail" data-hover="Klappt die rechte Sidebar auf oder zu.">❮</div>
+      <div class="sidebar-outer" id="leftSidebarOuter"></div>
+      <div class="rightbar-outer" id="rightSidebarOuter"></div>
+      <div class="app-header" id="appHeader"
+           data-hover="Header ist die Drag-Zone. Bewegung läuft durch moveWindow() — Parent-Grenzen bleiben aktiv.">
+        <div class="title-wrap">
+          <div class="lamp"></div>
+          <div>
+            <div class="title">App Window · V4.8</div>
+            <div class="subtitle">Engine-First · Alle Größen laufen durch ConstraintEngine</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="btnSaveLayout"  data-hover="Speichert den aktuellen State (alle Fenstergrößen, Werttypen) in localStorage.">Speichern</button>
+          <button class="icon-btn" id="btnLoadLayout"  data-hover="Lädt den gespeicherten State. render(state) aktualisiert die gesamte UI.">Laden</button>
+          <button class="icon-btn" id="btnUndo"        data-hover="Undo: stellt den vorherigen validen Layout-State wieder her.">Undo</button>
+          <button class="icon-btn" id="btnRedo"        data-hover="Redo: stellt einen per Undo rückgängig gemachten State wieder her.">Redo</button>
+          <button class="icon-btn" id="btnFullscreen"  data-hover="Vollbild innerhalb des Desktops. Sidebars öffnen dann immer im Inner-Modus.">Vollbild</button>
+        </div>
+      </div>
+      <div class="app-shell" id="appShell">
+        <aside class="sidebar"  id="leftSidebar" ><div class="sidebar-content"  id="leftSidebarContent" ></div></aside>
+        <main  class="main">    <div class="main-canvas"   id="mainCanvas"          ></div></main>
+        <aside class="rightbar" id="rightSidebar"><div class="rightbar-content" id="rightSidebarContent"></div></aside>
+        <section class="bottom-panel hidden" id="bottomPanel"></section>
+      </div>
+      <div class="tooltip-bar" id="tooltipBar">Hover über ein Element — die Engine übersetzt Constraint-Logik in lesbare Worte.</div>
+      <div class="resize-handle" id="appResizeHandle" data-hover="SE-Resize für app.root. Delta → ConstraintEngine → min/max/Parent-Grenzen → commit."></div>
+    </div>
+  </div>
+
+<script type="module">
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 1 · CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SNAP_THRESHOLD_DEFAULT = 8;
+const ADJACENCY_TOLERANCE    = 1;
+
+const VisibilityPolicy = Object.freeze({
+  NO_OVERFLOW:           'noOverflow',
+  ALLOW_OVERFLOW_SCROLL: 'allowOverflowWithScroll',
+});
+const ResizePolicy = Object.freeze({
+  FIXED: 'fixed', FLEXIBLE: 'flexible', PROPORTIONAL: 'proportional',
+});
+const SnapPolicy  = Object.freeze({ ENABLED: 'enabled', DISABLED: 'disabled' });
+const Edge        = Object.freeze({ LEFT: 'left', RIGHT: 'right', TOP: 'top', BOTTOM: 'bottom' });
+const CEError     = Object.freeze({
+  INVALID_WINDOW_ID:        'INVALID_WINDOW_ID',
+  MIN_EXCEEDS_MAX:          'MIN_EXCEEDS_MAX',
+  MIN_SIZE_VIOLATED:        'MIN_SIZE_VIOLATED',
+  MAX_SIZE_VIOLATED:        'MAX_SIZE_VIOLATED',
+  SIBLING_OVERLAP:          'SIBLING_OVERLAP',
+  OVERFLOW_POLICY_VIOLATED: 'OVERFLOW_POLICY_VIOLATED',
+  PARENT_BOUND_EXCEEDED:    'PARENT_BOUND_EXCEEDED',
+  NOTHING_TO_UNDO:          'NOTHING_TO_UNDO',
+  NOTHING_TO_REDO:          'NOTHING_TO_REDO',
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 2 · CONSTRAINT ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function clamp(v, mn, mx)  { return Math.max(mn, Math.min(mx, v)); }
+function hasError(errors)  { return errors.some(e => e.severity === 'error'); }
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+function getEdgeValue(b, edge) {
+  switch (edge) {
+    case Edge.LEFT:   return b.x;
+    case Edge.RIGHT:  return b.x + b.w;
+    case Edge.TOP:    return b.y;
+    case Edge.BOTTOM: return b.y + b.h;
+  }
+}
+function getParentInnerBounds(parent) {
+  const p = parent.innerPadding ?? { top:0, right:0, bottom:0, left:0 };
+  return { w: parent.currentSize.w - p.left - p.right,
+           h: parent.currentSize.h - p.top  - p.bottom };
+}
+function cloneWindows(windows) {
+  const out = {};
+  for (const [id, w] of Object.entries(windows)) {
+    out[id] = { ...w,
+      bounds:       { ...w.bounds },
+      minSize:      { ...w.minSize },
+      maxSize:      { ...w.maxSize },
+      defaultSize:  { ...w.defaultSize },
+      currentSize:  { ...w.currentSize },
+      adaptSize:    { ...w.adaptSize },
+      previousSize: { ...w.previousSize },
+      innerPadding: w.innerPadding ? { ...w.innerPadding } : { top:0, right:0, bottom:0, left:0 },
+      metadata:     { ...w.metadata },
+    };
+  }
+  return out;
+}
+
+// ── LayoutTree ────────────────────────────────────────────────────────────
+const LayoutTree = {
+  getParent(windows, id) {
+    const w = windows[id];
+    return (w?.parentId) ? (windows[w.parentId] ?? null) : null;
+  },
+  getChildren(windows, parentId) {
+    return Object.values(windows).filter(w => w.parentId === parentId);
+  },
+  getSiblings(windows, id) {
+    const w = windows[id];
+    if (!w) return [];
+    return Object.values(windows).filter(s => s.parentId === w.parentId && s.id !== id);
+  },
+  getLinkedEdges(sharedEdges, windowId) {
+    return sharedEdges.filter(e => e.linked && (e.windowA === windowId || e.windowB === windowId));
+  },
+  topologicalOrder(windows) {
+    const visited = new Set();
+    const result  = [];
+    function visit(id) {
+      if (visited.has(id)) return;
+      visited.add(id);
+      const w = windows[id];
+      if (w?.parentId && windows[w.parentId]) visit(w.parentId);
+      result.push(id);
+    }
+    for (const id of Object.keys(windows)) visit(id);
+    return result;
+  },
+};
+
+// ── Factory functions ──────────────────────────────────────────────────────
+function createWindow({ id, name, parentId=null, bounds={x:0,y:0,w:0,h:0},
+  minSize={w:0,h:0}, maxSize={w:Infinity,h:Infinity}, defaultSize=null,
+  currentSize=null, adaptSize=null, previousSize=null,
+  innerPadding={top:0,right:0,bottom:0,left:0},
+  visibilityPolicy=VisibilityPolicy.NO_OVERFLOW,
+  resizePolicy=ResizePolicy.FLEXIBLE, snapPolicy=SnapPolicy.ENABLED,
+  collapsed=false, overlay=false, metadata={} }) {
+  const ds = defaultSize  ?? { w: bounds.w, h: bounds.h };
+  const cs = currentSize  ?? { ...ds };
+  const as = adaptSize    ?? { ...ds };
+  const ps = previousSize ?? { ...cs };
+  return { id, name, parentId, bounds: {...bounds}, minSize: {...minSize},
+    maxSize: {...maxSize}, defaultSize: {...ds}, currentSize: {...cs},
+    adaptSize: {...as}, previousSize: {...ps}, innerPadding: {...innerPadding},
+    visibilityPolicy, resizePolicy, snapPolicy, collapsed, overlay,
+    metadata: { devLabelVisible: false, ...metadata } };
+}
+function createSharedEdge({ id, windowA, edgeA, windowB, edgeB, linked=true }) {
+  return { id, windowA, edgeA, windowB, edgeB, linked };
+}
+
+// ── SharedEdge propagation ─────────────────────────────────────────────────
+function _applyEdgeDelta(w, edge, delta) {
+  switch (edge) {
+    case Edge.LEFT:   w.bounds.x += delta; w.bounds.w -= delta; break;
+    case Edge.RIGHT:  w.bounds.w += delta; break;
+    case Edge.TOP:    w.bounds.y += delta; w.bounds.h -= delta; break;
+    case Edge.BOTTOM: w.bounds.h += delta; break;
+  }
+  w.currentSize = { w: w.bounds.w, h: w.bounds.h };
+}
+function propagateSharedEdges(workingWindows, originalBounds, sharedEdges, proposedUpdates, affectedSet) {
+  for (const [windowId, update] of Object.entries(proposedUpdates)) {
+    if (!update.bounds) continue;
+    const orig = originalBounds[windowId];
+    const curr = workingWindows[windowId]?.bounds;
+    if (!orig || !curr) continue;
+    for (const edge of LayoutTree.getLinkedEdges(sharedEdges, windowId)) {
+      const isA       = edge.windowA === windowId;
+      const myEdge    = isA ? edge.edgeA : edge.edgeB;
+      const theirId   = isA ? edge.windowB : edge.windowA;
+      const theirEdge = isA ? edge.edgeB : edge.edgeA;
+      const them = workingWindows[theirId];
+      if (!them) continue;
+      const delta = getEdgeValue(curr, myEdge) - getEdgeValue(orig, myEdge);
+      if (Math.abs(delta) < Number.EPSILON) continue;
+      _applyEdgeDelta(them, theirEdge, delta);
+      affectedSet.add(theirId);
+    }
+  }
+}
+
+// ── Sibling push ──────────────────────────────────────────────────────────
+function pushSibling(aggressorBounds, sibling) {
+  const ox = Math.min(aggressorBounds.x+aggressorBounds.w, sibling.bounds.x+sibling.bounds.w)
+           - Math.max(aggressorBounds.x, sibling.bounds.x);
+  const oy = Math.min(aggressorBounds.y+aggressorBounds.h, sibling.bounds.y+sibling.bounds.h)
+           - Math.max(aggressorBounds.y, sibling.bounds.y);
+  if (ox <= oy) sibling.bounds.x += sibling.bounds.x < aggressorBounds.x ? -ox : ox;
+  else          sibling.bounds.y += sibling.bounds.y < aggressorBounds.y ? -oy : oy;
+  sibling.currentSize = { w: sibling.bounds.w, h: sibling.bounds.h };
+}
+
+// ── Snap ──────────────────────────────────────────────────────────────────
+function collectSnapTargets(workingWindows, windowId, parent) {
+  const targets = [];
+  if (parent) {
+    const pib = getParentInnerBounds(parent);
+    targets.push({axis:'x',value:0},{axis:'x',value:pib.w},{axis:'y',value:0},{axis:'y',value:pib.h});
+  }
+  for (const sib of LayoutTree.getSiblings(workingWindows, windowId)) {
+    targets.push({axis:'x',value:sib.bounds.x},{axis:'x',value:sib.bounds.x+sib.bounds.w});
+    targets.push({axis:'y',value:sib.bounds.y},{axis:'y',value:sib.bounds.y+sib.bounds.h});
+  }
+  return targets;
+}
+function applySnap(w, targets, threshold) {
+  for (const { axis, value } of targets) {
+    if (axis === 'x') {
+      if (Math.abs(w.bounds.x - value) < threshold)                  w.bounds.x = value;
+      else if (Math.abs((w.bounds.x + w.bounds.w) - value) < threshold) w.bounds.x = value - w.bounds.w;
+    } else {
+      if (Math.abs(w.bounds.y - value) < threshold)                  w.bounds.y = value;
+      else if (Math.abs((w.bounds.y + w.bounds.h) - value) < threshold) w.bounds.y = value - w.bounds.h;
+    }
+  }
+  w.currentSize = { w: w.bounds.w, h: w.bounds.h };
+}
+
+/**
+ * applyConstraints — Kern-Validierungspipeline.
+ * Validierungsreihenfolge: Parent-Grenzen → min/max → Sibling-Kollision
+ *   → Overflow-Policy → Snap → Finale Härtepruüfung → commit/rollback.
+ *
+ * @param {Object} state
+ * @param {Object} proposedUpdates  { [windowId]: { bounds?: Partial<Bounds> } }
+ * @param {Object} options          { snapOverride?, viewportBounds? }
+ * @returns {{ ok, state|null, errors }}
+ */
+function applyConstraints(state, proposedUpdates, options = {}) {
+  const { snapOverride=false, viewportBounds={w:Infinity,h:Infinity} } = options;
+  const errors = [];
+
+  // Validate IDs
+  for (const id of Object.keys(proposedUpdates)) {
+    if (!state.windows[id]) {
+      errors.push({ code: CEError.INVALID_WINDOW_ID, windowId: id, severity:'error',
+        detail: `'${id}' nicht gefunden` });
+    }
+  }
+  if (hasError(errors)) return { ok: false, state: null, errors };
+
+  const workingWindows = cloneWindows(state.windows);
+  const originalBounds = {};
+  for (const id of Object.keys(state.windows)) originalBounds[id] = { ...state.windows[id].bounds };
+
+  // Apply proposed updates
+  for (const [id, update] of Object.entries(proposedUpdates)) {
+    const w = workingWindows[id];
+    if (update.bounds) {
+      w.bounds      = { ...w.bounds, ...update.bounds };
+      w.currentSize = { w: w.bounds.w, h: w.bounds.h };
+    }
+  }
+
+  // SharedEdge propagation
+  const affectedSet = new Set(Object.keys(proposedUpdates));
+  propagateSharedEdges(workingWindows, originalBounds, state.sharedEdges, proposedUpdates, affectedSet);
+
+  // Process in topological order
+  const ordered = LayoutTree.topologicalOrder(workingWindows).filter(id => affectedSet.has(id));
+
+  // ── Step 1 + 2: Parent bounds + min/max clamp ─────────────────────────
+  for (const id of ordered) {
+    const w      = workingWindows[id];
+    const parent = LayoutTree.getParent(workingWindows, id);
+    let availW, availH;
+
+    if (parent) {
+      const pib = getParentInnerBounds(parent);
+      availW = pib.w; availH = pib.h;
+    } else {
+      availW = viewportBounds.w; availH = viewportBounds.h;
+    }
+
+    w.bounds.x = clamp(w.bounds.x, 0, Math.max(0, availW - w.minSize.w));
+    w.bounds.y = clamp(w.bounds.y, 0, Math.max(0, availH - w.minSize.h));
+
+    const effMaxW = Math.min(w.maxSize.w, availW - w.bounds.x);
+    const effMaxH = Math.min(w.maxSize.h, availH - w.bounds.y);
+    const newW = clamp(w.bounds.w, w.minSize.w, effMaxW);
+    const newH = clamp(w.bounds.h, w.minSize.h, effMaxH);
+
+    if (newW !== w.bounds.w || newH !== w.bounds.h) {
+      errors.push({ code: CEError.PARENT_BOUND_EXCEEDED, windowId: id, severity:'warn',
+        detail: `Geclampt ${w.bounds.w}×${w.bounds.h}→${newW}×${newH}`,
+        original: {w:w.bounds.w,h:w.bounds.h}, clamped: {w:newW,h:newH} });
+    }
+    w.bounds.w = newW; w.bounds.h = newH;
+    w.currentSize = { w: newW, h: newH };
+
+    if (w.minSize.w > w.maxSize.w || w.minSize.h > w.maxSize.h) {
+      errors.push({ code: CEError.MIN_EXCEEDS_MAX, windowId: id, severity:'error',
+        detail: `min>max: ${w.minSize.w}×${w.minSize.h} > ${w.maxSize.w}×${w.maxSize.h}` });
+    }
+  }
+  if (hasError(errors)) return { ok: false, state: null, errors };
+
+  // ── Step 3: Sibling-Kollision ─────────────────────────────────────────
+  for (const id of ordered) {
+    const w = workingWindows[id];
+    if (w.overlay) continue;
+    for (const sib of LayoutTree.getSiblings(workingWindows, id)) {
+      if (sib.overlay || !rectsOverlap(w.bounds, sib.bounds)) continue;
+      if (sib.resizePolicy === ResizePolicy.FLEXIBLE) {
+        pushSibling(w.bounds, sib); affectedSet.add(sib.id);
+      } else {
+        errors.push({ code: CEError.SIBLING_OVERLAP, windowId: id, severity:'error',
+          detail: `'${id}' überschneidet FIXED Sibling '${sib.id}'` });
+      }
+    }
+  }
+  if (hasError(errors)) return { ok: false, state: null, errors };
+
+  // ── Step 4: Overflow-Policy ───────────────────────────────────────────
+  for (const id of ordered) {
+    const w = workingWindows[id];
+    for (const child of LayoutTree.getChildren(workingWindows, id)) {
+      if (child.visibilityPolicy === VisibilityPolicy.ALLOW_OVERFLOW_SCROLL) continue;
+      const pib = getParentInnerBounds(w);
+      if ((child.bounds.x + child.bounds.w) <= pib.w && (child.bounds.y + child.bounds.h) <= pib.h) continue;
+      if (child.resizePolicy === ResizePolicy.FLEXIBLE) {
+        child.bounds.w    = Math.min(child.bounds.w, Math.max(child.minSize.w, pib.w - child.bounds.x));
+        child.bounds.h    = Math.min(child.bounds.h, Math.max(child.minSize.h, pib.h - child.bounds.y));
+        child.currentSize = { w: child.bounds.w, h: child.bounds.h };
+        affectedSet.add(child.id);
+        errors.push({ code: CEError.OVERFLOW_POLICY_VIOLATED, windowId: child.id, severity:'warn',
+          detail: `Child '${child.id}' geclampt in '${id}'` });
+      } else {
+        errors.push({ code: CEError.OVERFLOW_POLICY_VIOLATED, windowId: child.id, severity:'error',
+          detail: `FIXED child '${child.id}' überläuft '${id}'` });
+      }
+    }
+  }
+  if (hasError(errors)) return { ok: false, state: null, errors };
+
+  // ── Step 5: Snap ──────────────────────────────────────────────────────
+  if (!snapOverride && state.settings.snapEnabled) {
+    const threshold = state.settings.snapThreshold ?? SNAP_THRESHOLD_DEFAULT;
+    for (const id of affectedSet) {
+      const w = workingWindows[id];
+      if (w.snapPolicy === SnapPolicy.DISABLED) continue;
+      applySnap(w, collectSnapTargets(workingWindows, id, LayoutTree.getParent(workingWindows, id)), threshold);
+    }
+  }
+
+  // ── Step 6: Finale Härtepruüfung ─────────────────────────────────────
+  for (const id of affectedSet) {
+    const w = workingWindows[id];
+    if (w.currentSize.w < w.minSize.w || w.currentSize.h < w.minSize.h)
+      errors.push({ code: CEError.MIN_SIZE_VIOLATED, windowId: id, severity:'error',
+        detail: `${w.currentSize.w}×${w.currentSize.h} < min ${w.minSize.w}×${w.minSize.h}` });
+    if (w.currentSize.w > w.maxSize.w || (w.maxSize.h !== Infinity && w.currentSize.h > w.maxSize.h))
+      errors.push({ code: CEError.MAX_SIZE_VIOLATED, windowId: id, severity:'error',
+        detail: `${w.currentSize.w}×${w.currentSize.h} > max ${w.maxSize.w}×${w.maxSize.h}` });
+  }
+  if (hasError(errors)) return { ok: false, state: null, errors };
+
+  return { ok: true, state: { ...state, windows: workingWindows }, errors };
+}
+
+// ── Collapse / Expand builders ─────────────────────────────────────────────
+function buildCollapseUpdate(state, id) {
+  const w = state.windows[id];
+  if (!w || w.collapsed) return null;
+  return { [id]: { bounds: { ...w.bounds, h: w.minSize.h } } };
+}
+function buildExpandUpdate(state, id) {
+  const w = state.windows[id];
+  if (!w || !w.collapsed) return null;
+  const parent   = w.parentId ? state.windows[w.parentId] : null;
+  const useAdapt = parent && (parent.currentSize.w > parent.defaultSize.w || parent.currentSize.h > parent.defaultSize.h);
+  const target   = useAdapt ? w.adaptSize : w.defaultSize;
+  return { [id]: { bounds: { ...w.bounds, w: target.w, h: target.h } } };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 3 · STATE STORE
+// ═══════════════════════════════════════════════════════════════════════════
+
+class StateStore {
+  #state; #undoStack=[]; #redoStack=[]; #maxHistory; #subscribers=new Set();
+
+  constructor(initialState, maxHistory=50) {
+    this.#state      = initialState;
+    this.#maxHistory = maxHistory;
+  }
+
+  getState()         { return this.#state; }
+  getWindow(id)      { return this.#state.windows[id] ?? null; }
+  canUndo()          { return this.#undoStack.length > 0; }
+  canRedo()          { return this.#redoStack.length > 0; }
+
+  subscribe(cb) {
+    this.#subscribers.add(cb);
+    return () => this.#subscribers.delete(cb);
+  }
+
+  /** Einziger Mutations-Pfad. Nur mit validiertem State aus applyConstraints aufrufen. */
+  commit(newState) {
+    this.#undoStack.push(this.#state);
+    if (this.#undoStack.length > this.#maxHistory) this.#undoStack.shift();
+    this.#redoStack = [];
+    const prev = this.#state;
+    this.#state = newState;
+    this.#subscribers.forEach(cb => { try { cb(this.#state, prev); } catch(e) { console.error(e); } });
+    return { ok: true };
+  }
+
+  undo() {
+    if (!this.#undoStack.length) return { ok:false, error: CEError.NOTHING_TO_UNDO };
+    this.#redoStack.push(this.#state);
+    const prev = this.#state; this.#state = this.#undoStack.pop();
+    this.#subscribers.forEach(cb => { try { cb(this.#state, prev); } catch(e) {} });
+    return { ok: true };
+  }
+  redo() {
+    if (!this.#redoStack.length) return { ok:false, error: CEError.NOTHING_TO_REDO };
+    this.#undoStack.push(this.#state);
+    const prev = this.#state; this.#state = this.#redoStack.pop();
+    this.#subscribers.forEach(cb => { try { cb(this.#state, prev); } catch(e) {} });
+    return { ok: true };
+  }
+
+  // ── Layout-Mutationen ───────────────────────────────────────────────────
+
+  resizeWindow(id, boundsChange, options={}) {
+    const r = applyConstraints(this.#state, { [id]: { bounds: boundsChange } }, options);
+    if (!r.ok) return r;
+    return { ...this.commit(r.state), errors: r.errors };
+  }
+
+  moveWindow(id, pos, options={}) { return this.resizeWindow(id, pos, options); }
+
+  collapseWindow(id, options={}) {
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    if (w.collapsed) return { ok:false, error: 'ALREADY_COLLAPSED' };
+    // Sichert previousSize VOR dem Collapse
+    const stateWithPrev = this.#patch(id, { previousSize: { ...w.currentSize } });
+    const proposed = buildCollapseUpdate(stateWithPrev, id);
+    if (!proposed) return { ok:false, error: 'BUILD_COLLAPSE_FAILED' };
+    const r = applyConstraints(stateWithPrev, proposed, options);
+    if (!r.ok) return r;
+    r.state.windows[id].collapsed = true;
+    return { ...this.commit(r.state), errors: r.errors };
+  }
+
+  expandWindow(id, options={}) {
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    if (!w.collapsed) return { ok:false, error: 'NOT_COLLAPSED' };
+    const proposed = buildExpandUpdate(this.#state, id);
+    if (!proposed) return { ok:false, error: 'BUILD_EXPAND_FAILED' };
+    const r = applyConstraints(this.#state, proposed, options);
+    if (!r.ok) return r;
+    r.state.windows[id].collapsed = false;
+    return { ...this.commit(r.state), errors: r.errors };
+  }
+
+  adaptWindow(id, options={}) {
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    const stateWithPrev = this.#patch(id, { previousSize: { ...w.currentSize } });
+    const r = applyConstraints(stateWithPrev,
+      { [id]: { bounds: { ...w.bounds, w: w.adaptSize.w, h: w.adaptSize.h } } }, options);
+    if (!r.ok) return r;
+    return { ...this.commit(r.state), errors: r.errors };
+  }
+
+  resetWindow(id, options={}) {
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    const stateWithPrev = this.#patch(id, { previousSize: { ...w.currentSize } });
+    const r = applyConstraints(stateWithPrev,
+      { [id]: { bounds: { ...w.bounds, w: w.defaultSize.w, h: w.defaultSize.h } } }, options);
+    if (!r.ok) return r;
+    r.state.windows[id].collapsed = false;
+    return { ...this.commit(r.state), errors: r.errors };
+  }
+
+  setSizeValue(id, valueType, size) {
+    const allowed = ['minSize','maxSize','defaultSize','adaptSize','previousSize'];
+    if (!allowed.includes(valueType)) return { ok:false, error:'INVALID_VALUE_TYPE' };
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    const newMin = valueType === 'minSize' ? size : w.minSize;
+    const newMax = valueType === 'maxSize' ? size : w.maxSize;
+    if (newMin.w > newMax.w || newMin.h > newMax.h) return { ok:false, error: CEError.MIN_EXCEEDS_MAX };
+    return this.commit(this.#patch(id, { [valueType]: { ...size } }));
+  }
+
+  /** Aktiviert/deaktiviert eine SharedEdge (z.B. für outer sidebar mode) */
+  setEdgeLinked(edgeId, linked) {
+    const newEdges = this.#state.sharedEdges.map(e => e.id === edgeId ? { ...e, linked } : e);
+    return this.commit({ ...this.#state, sharedEdges: newEdges });
+  }
+
+  /** UI-State-Update (activeView, selectedWindow, log etc.) — kein CE-Durchlauf */
+  updateUI(patch) {
+    return this.commit({ ...this.#state, ui: { ...this.#state.ui, ...patch } });
+  }
+
+  appendLog(text) {
+    const log = [{ time: new Date().toLocaleTimeString('de-DE'), text },
+                 ...(this.#state.ui.processLog ?? [])].slice(0, 18);
+    return this.commit({ ...this.#state, ui: { ...this.#state.ui, processLog: log } });
+  }
+
+  updateSettings(patch) {
+    return this.commit({ ...this.#state, settings: { ...this.#state.settings, ...patch } });
+  }
+
+  /** Setzt collapsed-Flag direkt, ohne CE (für outer sidebar mode / floating window) */
+  setCollapsedDirect(id, collapsed) {
+    const w = this.getWindow(id);
+    if (!w) return { ok:false, error: CEError.INVALID_WINDOW_ID };
+    const patch = collapsed
+      ? { collapsed: true, previousSize: { ...w.currentSize } }
+      : { collapsed: false };
+    return this.commit(this.#patch(id, patch));
+  }
+
+  getWindowDiagnostics(id) {
+    const w = this.getWindow(id);
+    if (!w) return null;
+    return { id, name:w.name, parentId:w.parentId, bounds:{...w.bounds},
+      minSize:{...w.minSize}, maxSize:{...w.maxSize}, defaultSize:{...w.defaultSize},
+      currentSize:{...w.currentSize}, adaptSize:{...w.adaptSize}, previousSize:{...w.previousSize},
+      visibilityPolicy:w.visibilityPolicy, resizePolicy:w.resizePolicy,
+      snapPolicy:w.snapPolicy, collapsed:w.collapsed };
+  }
+
+  #patch(id, patch) {
+    return { ...this.#state, windows: { ...this.#state.windows,
+      [id]: { ...this.#state.windows[id], ...patch } } };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 4 · INITIAL STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function createInitialState() {
+  const HEADER_H = 52, APP_W = 1120, APP_H = 720;
+  const SHELL_H  = APP_H - HEADER_H;  // 668
+  const SL_W = 230, SR_W = 300, BOT_H = 150;
+
+  const windows = {};
+
+  windows['app.root'] = createWindow({ id:'app.root', name:'AppRoot', parentId:null,
+    bounds:{ x:24, y:24, w:APP_W, h:APP_H },
+    minSize:{w:880,h:560}, maxSize:{w:Infinity,h:Infinity},
+    defaultSize:{w:APP_W,h:APP_H},
+    innerPadding:{top:HEADER_H,right:0,bottom:0,left:0} });
+
+  // Collapsed sidebars start at w=0. SharedEdge propagation handles main.canvas
+  // automatically when they expand.
+  windows['sidebar.left'] = createWindow({ id:'sidebar.left', name:'LeftSidebar',
+    parentId:'app.root', bounds:{x:0,y:0,w:0,h:SHELL_H},
+    minSize:{w:0,h:200}, maxSize:{w:480,h:Infinity},
+    defaultSize:{w:SL_W,h:SHELL_H}, adaptSize:{w:SL_W,h:SHELL_H}, collapsed:true });
+
+  windows['main.canvas'] = createWindow({ id:'main.canvas', name:'MainCanvas',
+    parentId:'app.root', bounds:{x:0,y:0,w:APP_W,h:SHELL_H},
+    minSize:{w:320,h:300}, maxSize:{w:Infinity,h:Infinity},
+    defaultSize:{w:APP_W,h:SHELL_H},
+    visibilityPolicy:VisibilityPolicy.ALLOW_OVERFLOW_SCROLL });
+
+  windows['sidebar.right'] = createWindow({ id:'sidebar.right', name:'RightSidebar',
+    parentId:'app.root', bounds:{x:APP_W,y:0,w:0,h:SHELL_H},
+    minSize:{w:0,h:200}, maxSize:{w:480,h:Infinity},
+    defaultSize:{w:SR_W,h:SHELL_H}, adaptSize:{w:SR_W,h:SHELL_H}, collapsed:true });
+
+  windows['panel.bottom'] = createWindow({ id:'panel.bottom', name:'BottomPanel',
+    parentId:'app.root', bounds:{x:0,y:SHELL_H,w:APP_W,h:0},
+    minSize:{w:400,h:0}, maxSize:{w:Infinity,h:400},
+    defaultSize:{w:APP_W,h:BOT_H}, adaptSize:{w:APP_W,h:BOT_H}, collapsed:true });
+
+  windows['window.A'] = createWindow({ id:'window.A', name:'Window A',
+    parentId:'main.canvas', bounds:{x:0,y:0,w:420,h:280},
+    minSize:{w:280,h:220}, maxSize:{w:900,h:680},
+    defaultSize:{w:420,h:280}, adaptSize:{w:480,h:320} });
+
+  windows['window.B'] = createWindow({ id:'window.B', name:'Window B',
+    parentId:'main.canvas', bounds:{x:434,y:0,w:390,h:280},
+    minSize:{w:280,h:220}, maxSize:{w:900,h:680},
+    defaultSize:{w:390,h:280}, adaptSize:{w:520,h:300} });
+
+  windows['window.A1'] = createWindow({ id:'window.A1', name:'Window A1',
+    parentId:'window.A', bounds:{x:0,y:120,w:280,h:160},
+    minSize:{w:180,h:120}, maxSize:{w:600,h:400},
+    defaultSize:{w:280,h:160}, adaptSize:{w:300,h:180} });
+
+  windows['window.floating'] = createWindow({ id:'window.floating', name:'FloatingWindow',
+    parentId:'main.canvas', bounds:{x:40,y:60,w:360,h:220},
+    minSize:{w:200,h:120}, maxSize:{w:800,h:600},
+    defaultSize:{w:360,h:220}, overlay:true, collapsed:true });
+
+  const sharedEdges = [
+    createSharedEdge({ id:'edge.sidebarL-main',
+      windowA:'sidebar.left', edgeA:Edge.RIGHT, windowB:'main.canvas', edgeB:Edge.LEFT, linked:false }),
+    createSharedEdge({ id:'edge.main-sidebarR',
+      windowA:'main.canvas', edgeA:Edge.RIGHT, windowB:'sidebar.right', edgeB:Edge.LEFT, linked:false }),
+    createSharedEdge({ id:'edge.main-bottom',
+      windowA:'main.canvas', edgeA:Edge.BOTTOM, windowB:'panel.bottom', edgeB:Edge.TOP, linked:false }),
+  ];
+
+  return {
+    windows, sharedEdges,
+    settings: { snapEnabled:true, snapThreshold:8, adjacencyTolerance:ADJACENCY_TOLERANCE, devMode:false },
+    ui: {
+      selectedWindowId: 'window.A',
+      activeView:       'app',
+      fullscreen:       false,
+      processLog:       [],
+      buttonConfig: {
+        function2: { label:'Funktion 2', hover:'Öffnet das Floating Window.' },
+        function3: { label:'Funktion 3', hover:'Öffnet oder schließt die Bottom-Leiste.' },
+      },
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 5 · RESIZE CONTROLLER
+// Pointer → delta → store.resizeWindow() → CE → commit → render
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ResizeController {
+  #store; #session = null;
+
+  constructor(store) { this.#store = store; }
+
+  /**
+   * Startet eine Resize-Session.
+   * @param {string}       windowId
+   * @param {string}       handle   — 'se' | 'e' | 's' | 'sw' | 'nw' | 'ne' | 'n' | 'w'
+   * @param {PointerEvent} e
+   */
+  begin(windowId, handle, e) {
+    const w = this.#store.getWindow(windowId);
+    if (!w) return;
+    this.#session = { windowId, handle,
+      startX: e.clientX, startY: e.clientY, startBounds: { ...w.bounds } };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  /**
+   * Aktualisiert die Resize-Session bei pointermove.
+   * Ruft store.resizeWindow() auf → geht durch ConstraintEngine.
+   */
+  update(e) {
+    if (!this.#session) return;
+    const { windowId, handle, startX, startY, startBounds } = this.#session;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    let { x, y, w, h } = startBounds;
+
+    switch (handle) {
+      case 'se': w += dx; h += dy; break;
+      case 'e':  w += dx; break;
+      case 's':  h += dy; break;
+      case 'sw': x += dx; w -= dx; h += dy; break;
+      case 'nw': x += dx; w -= dx; y += dy; h -= dy; break;
+      case 'ne': w += dx; y += dy; h -= dy; break;
+      case 'n':  y += dy; h -= dy; break;
+      case 'w':  x += dx; w -= dx; break;
+    }
+
+    this.#store.resizeWindow(windowId, { x, y, w, h }, {
+      viewportBounds: { w: window.innerWidth, h: window.innerHeight },
+    });
+  }
+
+  end(e) {
+    if (!this.#session) return;
+    this.#store.appendLog(`${this.#session.windowId} resized`);
+    this.#session = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  get active() { return this.#session !== null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 6 · DRAG CONTROLLER
+// Pointer → delta → store.moveWindow() → CE → commit → render
+// ═══════════════════════════════════════════════════════════════════════════
+
+class DragController {
+  #store; #session = null;
+
+  constructor(store) { this.#store = store; }
+
+  begin(windowId, e) {
+    const w = this.#store.getWindow(windowId);
+    if (!w) return;
+    this.#session = { windowId, startX: e.clientX, startY: e.clientY,
+      startBounds: { ...w.bounds } };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  update(e) {
+    if (!this.#session) return;
+    const { windowId, startX, startY, startBounds } = this.#session;
+    this.#store.moveWindow(windowId,
+      { x: startBounds.x + (e.clientX - startX), y: startBounds.y + (e.clientY - startY) },
+      { viewportBounds: { w: window.innerWidth, h: window.innerHeight }, snapOverride: true });
+  }
+
+  end(e) {
+    this.#session = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  get active() { return this.#session !== null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 7 · RENDER LAYER  (pure: state → DOM, keine andere Richtung)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// DOM-Referenzen (einmalig gecacht)
+const D = {};
+function cacheDOM() {
+  ['appWindow','appHeader','appShell','leftSidebar','rightSidebar','bottomPanel',
+   'mainCanvas','leftSidebarContent','rightSidebarContent','leftSidebarOuter',
+   'rightSidebarOuter','tooltipBar','modeChip','sizeChip','leftRail','rightRail',
+  ].forEach(id => D[id] = document.getElementById(id));
+}
+
+// Render-Scheduling: max. 1× pro Frame
+let _renderPending = false;
+function scheduleRender(store) {
+  if (_renderPending) return;
+  _renderPending = true;
+  requestAnimationFrame(() => { _renderPending = false; render(store.getState(), store); });
+}
+
+/** Haupt-Render-Funktion. Darf KEINE State-Mutationen auslösen. */
+function render(state, store) {
+  renderAppGeometry(state);
+  renderSidebarLayout(state);
+  renderSidebarContents(state);
+  renderMainContent(state, store);
+  renderBottomContent(state);
+  renderChips(state, store);
+}
+
+// ── App-Geometry ──────────────────────────────────────────────────────────
+function renderAppGeometry(state) {
+  const root = state.windows['app.root'];
+  const full = state.ui.fullscreen;
+  D.appWindow.classList.toggle('fullscreen', full);
+  if (!full) {
+    D.appWindow.style.left   = root.bounds.x + 'px';
+    D.appWindow.style.top    = root.bounds.y + 'px';
+    D.appWindow.style.width  = root.currentSize.w + 'px';
+    D.appWindow.style.height = root.currentSize.h + 'px';
+  }
+}
+
+// ── Sidebar layout: CSS-vars + classes ────────────────────────────────────
+function getSidebarMode(state) {
+  if (state.ui.fullscreen) return 'inner';
+  const r = state.windows['app.root'].currentSize;
+  return (r.w < window.innerWidth * 0.75 && r.h < window.innerHeight * 0.75) ? 'outer' : 'inner';
+}
+
+function renderSidebarLayout(state) {
+  const sL  = state.windows['sidebar.left'];
+  const sR  = state.windows['sidebar.right'];
+  const bot = state.windows['panel.bottom'];
+  const mode = getSidebarMode(state);
+
+  const leftOpen   = !sL.collapsed;
+  const rightOpen  = !sR.collapsed;
+  const bottomOpen = !bot.collapsed;
+
+  // CSS-vars: treiben die grid-template-columns (Layout Rules: CSS darf keine Logik haben)
+  const sLW  = leftOpen   && mode === 'inner' ? sL.defaultSize.w  : 0;
+  const sRW  = rightOpen  && mode === 'inner' ? sR.defaultSize.w  : 0;
+  const botH = bottomOpen                     ? bot.defaultSize.h : 0;
+
+  D.appWindow.style.setProperty('--sidebar-w',  sLW  + 'px');
+  D.appWindow.style.setProperty('--rightbar-w', sRW  + 'px');
+  D.appWindow.style.setProperty('--bottom-h',   botH + 'px');
+
+  D.appWindow.classList.toggle('left-open-inner',  leftOpen  && mode === 'inner');
+  D.appWindow.classList.toggle('right-open-inner', rightOpen && mode === 'inner');
+  D.appWindow.classList.toggle('left-open-outer',  leftOpen  && mode === 'outer');
+  D.appWindow.classList.toggle('right-open-outer', rightOpen && mode === 'outer');
+  D.appWindow.classList.toggle('bottom-open',      bottomOpen);
+  D.bottomPanel.classList.toggle('hidden', !bottomOpen);
+
+  D.leftRail.textContent  = leftOpen  ? '❮' : '❯';
+  D.rightRail.textContent = rightOpen ? '❯' : '❮';
+
+  D.leftRail.style.left   = leftOpen  && mode === 'outer' ? `calc(-${sL.defaultSize.w}px - 19px)` : '-9px';
+  D.rightRail.style.right = rightOpen && mode === 'outer' ? `calc(-${sR.defaultSize.w}px - 19px)` : '-9px';
+}
+
+// ── Sidebar contents (nav, control center) ───────────────────────────────
+function sidebarNavHTML(state) {
+  const bc  = state.ui.buttonConfig;
+  const nav = [
+    ['app',          'App',                    'Lädt die Hauptansicht.'],
+    ['funktion1',    'Funktion 1',             'Lädt eine zweite View.'],
+    ['funktion2',    bc.function2.label,       bc.function2.hover],
+    ['funktion3',    bc.function3.label,       bc.function3.hover],
+    ['einstellungen','Einstellungen',          'Settings-Ansicht öffnen.'],
+  ];
+  return `<div class="sidebar-content">
+    <div class="side-head" data-hover="Navigation">Menü</div>
+    <div class="nav-list">${nav.map(([key,label,hint]) =>
+      `<button class="nav-item ${state.ui.activeView===key?'active':''}"
+        data-menu="${key}" data-hover="${hint}">
+        <span>${label}</span><small>${key}</small>
+      </button>`).join('')}
+    </div></div>`;
+}
+
+function controlCenterHTML(state) {
+  const w   = state.windows[state.ui.selectedWindowId];
+  const log = state.ui.processLog ?? [];
+  return `<div class="rightbar-content">
+    <div class="side-head" data-hover="Control Center">Control Center</div>
+    <div class="accordion">
+      <details open><summary data-hover="Live Engine-Status">Dev Monitor <span class="muted">live</span></summary>
+        <div class="details-body"><div class="mini-list">
+          <div class="mini-item"><span class="status-dot"></span>View: ${state.ui.activeView}</div>
+          <div class="mini-item"><span class="status-dot"></span>Sidebar L: ${state.windows['sidebar.left'].collapsed?'zu':'offen'}</div>
+          <div class="mini-item"><span class="status-dot"></span>Sidebar R: ${state.windows['sidebar.right'].collapsed?'zu':'offen'}</div>
+          <div class="mini-item"><span class="status-dot"></span>Snap: ${state.settings.snapEnabled?'aktiv':'aus'} · ${state.settings.snapThreshold}px</div>
+        </div></div>
+      </details>
+      <details open><summary data-hover="Alle sechs Werttypen des gewählten Windows.">Value Editor <span class="muted">${w?.name ?? '—'}</span></summary>
+        <div class="details-body">
+          <div class="field"><label>Fenster</label>
+            <select id="veWindowSelect">${Object.values(state.windows).map(ww =>
+              `<option value="${ww.id}" ${ww.id===state.ui.selectedWindowId?'selected':''}>${ww.name}</option>`).join('')}
+            </select>
+          </div>
+          ${w ? `
+          <div class="row">
+            <div class="field"><label>minW</label><input id="veMinW" type="number" value="${w.minSize.w}"/></div>
+            <div class="field"><label>minH</label><input id="veMinH" type="number" value="${w.minSize.h}"/></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>maxW</label><input id="veMaxW" type="number" value="${w.maxSize.w===Infinity?9999:w.maxSize.w}"/></div>
+            <div class="field"><label>maxH</label><input id="veMaxH" type="number" value="${w.maxSize.h===Infinity?9999:w.maxSize.h}"/></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>defaultW</label><input id="veDefaultW" type="number" value="${w.defaultSize.w}"/></div>
+            <div class="field"><label>defaultH</label><input id="veDefaultH" type="number" value="${w.defaultSize.h}"/></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>adaptW</label><input id="veAdaptW" type="number" value="${w.adaptSize.w}"/></div>
+            <div class="field"><label>adaptH</label><input id="veAdaptH" type="number" value="${w.adaptSize.h}"/></div>
+          </div>
+          <div class="mini-item" style="margin-top:4px;">current: ${w.currentSize.w}×${w.currentSize.h} · previous: ${w.previousSize.w}×${w.previousSize.h}</div>
+          <button class="save-btn" id="applyValueEditor" data-hover="Schreibt die Werte via setSizeValue() in den Store.">Werte anwenden</button>` : ''}
+        </div>
+      </details>
+      <details><summary data-hover="Snap-Einstellungen">Einstellungen <span class="muted">snap</span></summary>
+        <div class="details-body">
+          <div class="row">
+            <div class="field"><label>Snap</label>
+              <select id="settingsSnap">
+                <option value="true"  ${state.settings.snapEnabled?'selected':''}>an</option>
+                <option value="false" ${!state.settings.snapEnabled?'selected':''}>aus</option>
+              </select>
+            </div>
+            <div class="field"><label>Threshold px</label>
+              <input id="settingsThreshold" type="number" value="${state.settings.snapThreshold}"/>
+            </div>
+          </div>
+          <button class="save-btn" id="saveSettingsBtn">Settings anwenden</button>
+        </div>
+      </details>
+      <details open><summary data-hover="Ereignisprotokoll aller Store-Aktionen.">Prozessmonitor <span class="muted">events</span></summary>
+        <div class="details-body"><div class="mini-list">${log.length
+          ? log.map(e => `<div class="mini-item"><strong>${e.time}</strong> · ${e.text}</div>`).join('')
+          : '<div class="mini-item">Keine Einträge.</div>'}
+        </div></div>
+      </details>
+    </div></div>`;
+}
+
+function renderSidebarContents(state) {
+  const html = sidebarNavHTML(state);
+  D.leftSidebarContent.innerHTML  = html;
+  D.leftSidebarOuter.innerHTML    = html;
+  const cc = controlCenterHTML(state);
+  D.rightSidebarContent.innerHTML = cc;
+  D.rightSidebarOuter.innerHTML   = cc;
+}
+
+// ── Main canvas ───────────────────────────────────────────────────────────
+function windowCardHTML(id, state) {
+  const w  = state.windows[id];
+  const sel = state.ui.selectedWindowId === id;
+  return `<section class="ui-window ${sel?'selected':''}" data-select-window="${id}"
+      data-hover="${w.name} — min:${w.minSize.w}×${w.minSize.h} max:${w.maxSize.w}×${w.maxSize.h}">
+    <div class="ui-header">
+      <div><div class="ui-title">${w.name}</div>
+        <div class="muted">${w.currentSize.w}×${w.currentSize.h} · ${w.collapsed?'eingeklappt':'offen'}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="inline-btn" data-action="${w.collapsed?'expand':'collapse'}" data-window="${id}"
+          data-hover="${w.collapsed?'Expand — orientiert an adaptSize oder defaultSize':'Collapse — sichert previousSize'}">
+          ${w.collapsed?'Expand':'Collapse'}
+        </button>
+        <button class="inline-btn" data-action="adapt" data-window="${id}"
+          data-hover="Setzt auf adaptSize: ${w.adaptSize.w}×${w.adaptSize.h}">Adapt</button>
+        <button class="inline-btn" data-action="reset" data-window="${id}"
+          data-hover="Reset auf defaultSize: ${w.defaultSize.w}×${w.defaultSize.h}">Reset</button>
+      </div>
+    </div>
+    <div class="ui-body" style="height:${w.collapsed?'70px':Math.max(100,w.currentSize.h-110)+'px'}">
+      <div class="tag">min ${w.minSize.w}×${w.minSize.h}</div>
+      <div class="tag">current ${w.currentSize.w}×${w.currentSize.h}</div>
+      <div class="tag">max ${w.maxSize.w}×${w.maxSize.h}</div>
+      ${id==='window.A' && !w.collapsed ? `
+        <div class="nested-window" data-select-window="window.A1"
+            data-hover="Window A1 — verschachteltes Child. Constraints gelten relativ zu Window A.">
+          <strong>${state.windows['window.A1'].name}</strong>
+          <div class="muted">${state.windows['window.A1'].currentSize.w}×${state.windows['window.A1'].currentSize.h}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="inline-btn" data-action="adapt" data-window="window.A1">Adapt</button>
+            <button class="inline-btn" data-action="reset" data-window="window.A1">Reset</button>
+          </div>
+        </div>` : ''}
+    </div>
+    <div class="ui-footer">
+      <span class="tag">previous ${w.previousSize.w}×${w.previousSize.h}</span>
+      <span class="tag">adapt ${w.adaptSize.w}×${w.adaptSize.h}</span>
+    </div>
+  </section>`;
+}
+
+function floatingWindowHTML(state) {
+  const fw = state.windows['window.floating'];
+  if (fw.collapsed) return '';
+  return `<div class="floating-window" id="floatingWindow"
+      style="left:${fw.bounds.x}px;top:${fw.bounds.y}px"
+      data-hover="Floating Window — overlay:true, kein Sibling-Kollisions-Check.">
+    <div class="draghead" id="floatingDrag">Externes Fenster
+      <button class="inline-btn" data-action="closeFloating">Schließen</button>
+    </div>
+    <div class="body">Floating Window als Overlay. Drag läuft durch DragController → moveWindow('window.floating').</div>
+  </div>`;
+}
+
+function mainViewHTML(state) {
+  if (state.ui.activeView === 'app') {
+    return `<div class="view-panel">
+      <div class="card" data-hover="App-Ansicht. Resize der Fenster-Cards läuft über ConstraintEngine.">
+        <h3>App View</h3>
+        <p>Alle Resize-Operationen laufen durch applyConstraints(). SharedEdges propagieren Kanten-Bewegungen automatisch.</p>
+      </div>
+      <div class="window-grid">${windowCardHTML('window.A',state)}${windowCardHTML('window.B',state)}</div>
+    </div>`;
+  }
+  if (state.ui.activeView === 'funktion1') {
+    return `<div class="view-panel">
+      <div class="card"><h3>Funktion 1</h3><p>Modulare View-Fläche. Main Area als austauschbarer View-Container.</p></div>
+    </div>`;
+  }
+  if (state.ui.activeView === 'einstellungen') {
+    return `<div class="view-panel">
+      <div class="card"><h3>Einstellungen</h3><p>Konfigurationsraum. Einstellungen sind App-Funktion, nicht versteckte Debug-Kammer.</p></div>
+    </div>`;
+  }
+  return '';
+}
+
+function renderMainContent(state, store) {
+  D.mainCanvas.innerHTML = mainViewHTML(state) + floatingWindowHTML(state);
+  // Event-Delegation nach innerHTML-Rebuild binden
+  bindMainEvents(D.mainCanvas, store);
+  // Floating window drag
+  const fw  = document.getElementById('floatingWindow');
+  const fwD = document.getElementById('floatingDrag');
+  if (fw && fwD) bindFloatingDrag(fw, fwD, store);
+}
+
+function renderBottomContent(state) {
+  if (state.windows['panel.bottom'].collapsed) return;
+  const log = state.ui.processLog ?? [];
+  D.bottomPanel.innerHTML = `
+    <div class="section-title">Bottom Leiste</div>
+    <div class="mini-list" style="margin-top:10px">${
+      log.length ? log.map(e => `<div class="mini-item"><strong>${e.time}</strong> · ${e.text}</div>`).join('')
+                 : '<div class="mini-item">Keine Einträge.</div>'
+    }</div>`;
+}
+
+function renderChips(state, store) {
+  const r   = state.windows['app.root'].currentSize;
+  const pct = Math.min(r.w / window.innerWidth, r.h / window.innerHeight);
+  D.sizeChip.textContent = `App ${r.w}×${r.h} · ${(pct*100).toFixed(0)}% Desktop`;
+  D.modeChip.textContent = state.ui.activeView === 'einstellungen'
+    ? 'Settings-Ansicht · Dev-nahe Steuerung' : 'User-Ansicht · Engine V4.8';
+  document.getElementById('btnUndo').style.opacity = store.canUndo() ? 1 : 0.4;
+  document.getElementById('btnRedo').style.opacity = store.canRedo() ? 1 : 0.4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 8 · EVENT BINDING (einmalig im init, delegiert für dynamische Elemente)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Bindet Klick-Delegation auf den main canvas nach jedem innerHTML-Rebuild */
+function bindMainEvents(canvas, store) {
+  const vp = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+  canvas.addEventListener('click', (e) => {
+    // Fenster auswählen
+    const sel = e.target.closest('[data-select-window]');
+    if (sel) {
+      store.updateUI({ selectedWindowId: sel.dataset.selectWindow });
+      store.appendLog(`${sel.dataset.selectWindow} ausgewählt`);
+      return;
+    }
+    // Window-Aktionen
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    e.stopPropagation();
+    const action = btn.dataset.action;
+    const winId  = btn.dataset.window;
+
+    if (action === 'closeFloating') {
+      store.setCollapsedDirect('window.floating', true);
+      store.appendLog('Floating Window geschlossen');
+      return;
+    }
+    if (!winId) return;
+
+    if (action === 'collapse') {
+      store.collapseWindow(winId, { viewportBounds: vp() });
+      store.appendLog(`${winId} eingeklappt`);
+    } else if (action === 'expand') {
+      store.expandWindow(winId, { viewportBounds: vp() });
+      store.appendLog(`${winId} ausgeklappt`);
+    } else if (action === 'adapt') {
+      store.adaptWindow(winId, { viewportBounds: vp() });
+      store.appendLog(`${winId} → adaptSize`);
+    } else if (action === 'reset') {
+      store.resetWindow(winId, { viewportBounds: vp() });
+      store.appendLog(`${winId} → defaultSize`);
+    }
+  }, { capture: false });
+}
+
+/** Bindet Drag auf das Floating Window */
+function bindFloatingDrag(fw, handle, store) {
+  const drag = new DragController(store);
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    handle.classList.add('dragging');
+    drag.begin('window.floating', e);
+  });
+  handle.addEventListener('pointermove', e => drag.update(e));
+  handle.addEventListener('pointerup',   e => { drag.end(e); handle.classList.remove('dragging'); });
+}
+
+/** Bindet Events auf Control Center (nach innerHTML-Rebuild — Delegation via parentElement) */
+function bindControlCenterEvents(store) {
+  const vp  = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+  // Diese Delegation läuft auf dem Dokument-Root, eingegrenzt auf IDs im Control Center
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'applyValueEditor') {
+      const get = (id) => {
+        const el = document.getElementById(id);
+        return el ? Number(el.value) : null;
+      };
+      const selEl = document.getElementById('veWindowSelect');
+      if (!selEl) return;
+      const id = selEl.value;
+      const w  = store.getWindow(id);
+      if (!w) return;
+
+      const maxWVal = get('veMaxW');
+      const maxHVal = get('veMaxH');
+
+      store.setSizeValue(id, 'minSize',     { w: get('veMinW'),  h: get('veMinH')  });
+      store.setSizeValue(id, 'maxSize',     { w: maxWVal >= 9999 ? Infinity : maxWVal,
+                                              h: maxHVal >= 9999 ? Infinity : maxHVal });
+      store.setSizeValue(id, 'defaultSize', { w: get('veDefaultW'), h: get('veDefaultH') });
+      store.setSizeValue(id, 'adaptSize',   { w: get('veAdaptW'),   h: get('veAdaptH') });
+      store.appendLog(`${id} — Werte aktualisiert`);
+    }
+
+    if (e.target.id === 'saveSettingsBtn') {
+      const snap = document.getElementById('settingsSnap');
+      const thr  = document.getElementById('settingsThreshold');
+      if (snap && thr) {
+        store.updateSettings({
+          snapEnabled:   snap.value === 'true',
+          snapThreshold: Number(thr.value) || 8,
+        });
+        store.appendLog('Settings aktualisiert');
+      }
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    if (e.target.id === 'veWindowSelect') {
+      store.updateUI({ selectedWindowId: e.target.value });
+    }
+  });
+}
+
+/** Einmalige Event-Bindung: Header-Buttons, Rails, Resize-Handle, Drag, Viewport-Resize */
+function bindStaticEvents(store, resizeCtrl, dragCtrl) {
+  const vp = () => ({ w: window.innerWidth, h: window.innerHeight });
+
+  // ── App window resize (SE-Handle) ────────────────────────────────────
+  const rh = document.getElementById('appResizeHandle');
+  rh.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    resizeCtrl.begin('app.root', 'se', e);
+  });
+  rh.addEventListener('pointermove', e => resizeCtrl.update(e));
+  rh.addEventListener('pointerup',   e => resizeCtrl.end(e));
+
+  // ── App window drag (Header) ─────────────────────────────────────────
+  D.appHeader.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    D.appHeader.classList.add('dragging');
+    dragCtrl.begin('app.root', e);
+  });
+  D.appHeader.addEventListener('pointermove', e => dragCtrl.update(e));
+  D.appHeader.addEventListener('pointerup',   (e) => {
+    dragCtrl.end(e); D.appHeader.classList.remove('dragging');
+  });
+
+  // ── Sidebar rails ────────────────────────────────────────────────────
+  D.leftRail.addEventListener('click', () => toggleSidebar(store, 'sidebar.left', 'edge.sidebarL-main'));
+  D.rightRail.addEventListener('click', () => toggleSidebar(store, 'sidebar.right', 'edge.main-sidebarR'));
+
+  // ── Header buttons ───────────────────────────────────────────────────
+  document.getElementById('btnSaveLayout').addEventListener('click', () => {
+    saveLocal(store.getState()); store.appendLog('Layout gespeichert');
+  });
+  document.getElementById('btnLoadLayout').addEventListener('click', () => {
+    const s = loadLocal();
+    if (s) { store.commit(s); store.appendLog('Layout geladen'); }
+  });
+  document.getElementById('btnUndo').addEventListener('click', () => {
+    const r = store.undo();
+    if (r.ok) store.appendLog('Undo');
+  });
+  document.getElementById('btnRedo').addEventListener('click', () => {
+    const r = store.redo();
+    if (r.ok) store.appendLog('Redo');
+  });
+  document.getElementById('btnFullscreen').addEventListener('click', () => {
+    const full = !store.getState().ui.fullscreen;
+    store.updateUI({ fullscreen: full });
+    store.appendLog(`Vollbild ${full ? 'aktiviert' : 'beendet'}`);
+  });
+
+  // ── Sidebar nav (delegiert auf Dokument, robuster als re-bind) ───────
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-menu]');
+    if (!btn) return;
+    handleMenu(btn.dataset.menu, store);
+  });
+
+  // ── Tooltip hover ────────────────────────────────────────────────────
+  document.body.addEventListener('mouseover', (e) => {
+    const t = e.target.closest('[data-hover]');
+    if (t) D.tooltipBar.textContent = t.dataset.hover;
+  });
+  document.body.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget?.closest('[data-hover]'))
+      D.tooltipBar.textContent = 'Hover über ein Element — die Engine übersetzt Constraint-Logik in lesbare Worte.';
+  });
+
+  // ── Viewport resize ──────────────────────────────────────────────────
+  window.addEventListener('resize', () => {
+    const root = store.getWindow('app.root');
+    store.resizeWindow('app.root',
+      { x: clamp(root.bounds.x, 8, window.innerWidth  - root.currentSize.w - 8),
+        y: clamp(root.bounds.y, 8, window.innerHeight - root.currentSize.h - 8) },
+      { viewportBounds: vp() });
+  });
+}
+
+/** Sidebar-Toggle: schaltet SharedEdge linked/unlinked je nach inner/outer mode */
+function toggleSidebar(store, sidebarId, edgeId) {
+  const state   = store.getState();
+  const sidebar = state.windows[sidebarId];
+  const mode    = getSidebarMode(state);
+  const vp      = { w: window.innerWidth, h: window.innerHeight };
+
+  if (sidebar.collapsed) {
+    // Öffnen
+    if (mode === 'inner') {
+      store.setEdgeLinked(edgeId, true);
+      store.expandWindow(sidebarId, { viewportBounds: vp });
+    } else {
+      // Outer: SharedEdge bleibt inaktiv, nur visuell öffnen
+      store.setCollapsedDirect(sidebarId, false);
+    }
+    store.appendLog(`${sidebarId} geöffnet (${mode})`);
+  } else {
+    // Schließen
+    if (mode === 'inner') {
+      store.collapseWindow(sidebarId, { viewportBounds: vp });
+      store.setEdgeLinked(edgeId, false);
+    } else {
+      store.setCollapsedDirect(sidebarId, true);
+    }
+    store.appendLog(`${sidebarId} geschlossen`);
+  }
+}
+
+function handleMenu(menu, store) {
+  if (menu === 'funktion2') {
+    store.setCollapsedDirect('window.floating', false);
+    store.appendLog('Floating Window geöffnet');
+    return;
+  }
+  if (menu === 'funktion3') {
+    const bot = store.getWindow('panel.bottom');
+    if (bot.collapsed) {
+      store.setEdgeLinked('edge.main-bottom', true);
+      store.expandWindow('panel.bottom', { viewportBounds: { w:window.innerWidth, h:window.innerHeight } });
+      store.appendLog('Bottom Panel geöffnet');
+    } else {
+      store.collapseWindow('panel.bottom', { viewportBounds: { w:window.innerWidth, h:window.innerHeight } });
+      store.setEdgeLinked('edge.main-bottom', false);
+      store.appendLog('Bottom Panel geschlossen');
+    }
+    return;
+  }
+  store.updateUI({ activeView: menu });
+  store.appendLog(`View → ${menu}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 9 · PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'mvp_v48_state';
+
+function serializeState(state) {
+  return JSON.stringify(state, (_, v) => v === Infinity ? '__∞__' : v);
+}
+function deserializeState(json) {
+  return JSON.parse(json, (_, v) => v === '__∞__' ? Infinity : v);
+}
+function saveLocal(state) {
+  try { localStorage.setItem(STORAGE_KEY, serializeState(state)); } catch (e) { console.warn('Save failed', e); }
+}
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? deserializeState(raw) : null;
+  } catch { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 10 · INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function init() {
+  cacheDOM();
+
+  const savedState    = loadLocal();
+  const initialState  = savedState ?? createInitialState();
+  const store         = new StateStore(initialState, 100);
+  const resizeCtrl    = new ResizeController(store);
+  const dragCtrl      = new DragController(store);
+
+  // Subscriber: scheduled render nach jedem commit
+  store.subscribe(() => scheduleRender(store));
+
+  // Statische Events (einmalig)
+  bindStaticEvents(store, resizeCtrl, dragCtrl);
+  bindControlCenterEvents(store);
+
+  // Initialrender
+  render(store.getState(), store);
+
+  if (!savedState) store.appendLog('V4.8 gestartet — Engine initialisiert');
+  else             store.appendLog('Gespeicherter State geladen');
+}
+
+init();
+</script>
+</body>
+</html>
