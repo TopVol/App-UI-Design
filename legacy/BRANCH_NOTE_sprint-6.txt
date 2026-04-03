@@ -1,0 +1,8 @@
+Active working branch for Sprint 6 legacy restore:
+
+branch: sprint-6-legacy-restore
+base: d87c8779713b252d0f342a055e325d5b366fd5a2
+
+Target files for this branch:
+- mvp_demo_v4.8.html
+- files/examples.js

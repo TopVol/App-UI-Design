@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mvp_demo_v4.8 · Legacy Bridge</title>
+  <style>
+    :root {
+      --bg: #0f1320;
+      --panel: #161c2f;
+      --panel-2: #1d2641;
+      --line: #304062;
+      --text: #e9eefc;
+      --muted: #aab6d6;
+      --accent: #75a7ff;
+      --good: #67d3a6;
+      --warn: #ffcc66;
+      --shadow: 0 22px 60px rgba(0,0,0,.45);
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background:
+        radial-gradient(circle at top left, #1c2544 0%, transparent 25%),
+        radial-gradient(circle at bottom right, #172038 0%, transparent 30%),
+        linear-gradient(160deg, #090d17, #0f1320 55%, #0b1020);
+      color: var(--text);
+      font-family: var(--font);
+    }
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+    .legacy-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(15,19,32,.78);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .legacy-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .lamp {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 12px rgba(103,211,166,.7);
+      flex: none;
+    }
+    .title { font-weight: 700; }
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover {
+      background: rgba(117,167,255,.14);
+      border-color: rgba(117,167,255,.35);
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: 360px minmax(0,1fr);
+      gap: 18px;
+      padding: 18px;
+      min-height: 0;
+    }
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      font-weight: 700;
+    }
+    .panel-body {
+      padding: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #dbe6ff;
+    }
+    iframe {
+      width: 100%;
+      height: calc(100vh - 110px);
+      border: 0;
+      background: #0f1320;
+      display: block;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,204,102,.12);
+      border: 1px solid rgba(255,204,102,.22);
+      color: #ffe3a1;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    ul { margin: 10px 0 0; padding-left: 18px; }
+    li + li { margin-top: 6px; }
+    @media (max-width: 1100px) {
+      .wrap { grid-template-columns: 1fr; }
+      iframe { height: 65vh; }
+    }
+  </style>
+</head>
+<body>
+  <header class="legacy-bar">
+    <div class="legacy-meta">
+      <div class="lamp"></div>
+      <div>
+        <div class="title">mvp_demo_v4.8.html</div>
+        <div class="subtitle">Legacy-Bridge auf der Branch <strong>sprint-6-legacy-restore</strong></div>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="btn" href="./index.html">Modulare v4.9 öffnen</a>
+      <a class="btn" href="./Layout%20Rules.txt">Layout Rules</a>
+      <a class="btn" href="./legacy/original-file-manifest.txt">Legacy Manifest</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <div class="panel-head">Status dieser Datei</div>
+      <div class="panel-body">
+        <div class="badge">Diese Datei ist eine lauffähige Rekonstruktion, keine byte-identische Wiederherstellung des ursprünglichen Uploads.</div>
+        <p>
+          Sie dient als vertrauter Legacy-Einstiegspunkt mit dem alten Dateinamen und bettet die aktuelle modulare App ein.
+          So bleibt der historische Pfad sichtbar, während die neue Struktur weiter genutzt werden kann.
+        </p>
+        <div class="code">Branch: sprint-6-legacy-restore
+Base: d87c8779713b252d0f342a055e325d5b366fd5a2
+Ziel von Sprint 6:
+- alte Einstiegspfade wieder sichtbar machen
+- neue modulare App parallel lauffähig halten
+- Legacy und v4.9 nicht gegenseitig zertrümmern</div>
+        <ul>
+          <li><strong>files/examples.js</strong> wurde auf dieser Branch als echte Datei zurückgebracht.</li>
+          <li><strong>mvp_demo_v4.8.html</strong> existiert wieder als nutzbarer Einstiegspunkt.</li>
+          <li>Die modulare App läuft weiterhin über <code>index.html</code>.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">Eingebettete modulare App</div>
+      <iframe src="./index.html" title="App UI Design v4.9"></iframe>
+    </section>
+  </main>
+</body>
+</html>
