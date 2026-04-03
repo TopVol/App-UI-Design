@@ -50,7 +50,6 @@ zugleich gibt's innerhalb dieser aktiven Funktion ein button mit dem sich ein fe
 
 
 
-
 Inhalt für eine direkt nutzbare TXT-Datei:
 
 KONZEPT-HANDBUCH

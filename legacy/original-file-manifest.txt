@@ -1,0 +1,13 @@
+Originaldateien aus dem hochgeladenen Stand:
+
+Layout Rules.txt
+mvp_demo_v4.8.html
+files/ConstraintEngine.js
+files/StateStore.js
+files/constants.js
+files/examples.js
+files/initialState.js
+src/controller/resize-controller.ts
+src/engine/constraint-engine.ts
+src/engine/layout-tree.ts
+src/types/window.types.ts
